@@ -1,0 +1,229 @@
+{
+  "id": "architecture-event-driven",
+  "title": "Event-driven Architecture",
+  "type": "system-architecture",
+  "direction": "LEFT_TO_RIGHT",
+  "routing": "ORTHOGONAL",
+  "theme": {
+    "name": "professional",
+    "showLegend": true
+  },
+  "nodes": [
+    {
+      "id": "node.client",
+      "label": "Client",
+      "kind": "frontend",
+      "ports": [
+        {
+          "id": "node.client.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.client.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.gateway",
+      "label": "API Gateway",
+      "kind": "gateway",
+      "ports": [
+        {
+          "id": "node.gateway.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.gateway.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.identity",
+      "label": "Identity Service",
+      "kind": "service",
+      "ports": [
+        {
+          "id": "node.identity.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.identity.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.order",
+      "label": "Order Service",
+      "kind": "service",
+      "ports": [
+        {
+          "id": "node.order.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.order.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.payment",
+      "label": "Payment Service",
+      "kind": "service",
+      "ports": [
+        {
+          "id": "node.payment.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.payment.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.bus",
+      "label": "Message Broker",
+      "kind": "queue",
+      "ports": [
+        {
+          "id": "node.bus.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.bus.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.redis",
+      "label": "Redis",
+      "kind": "cache",
+      "ports": [
+        {
+          "id": "node.redis.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.redis.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.order-db",
+      "label": "Order Database",
+      "kind": "database",
+      "ports": [
+        {
+          "id": "node.order-db.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.order-db.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.payment-provider",
+      "label": "Payment Provider",
+      "kind": "external"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge.client-gateway",
+      "source": "node.client",
+      "target": "node.gateway",
+      "type": "flow"
+    },
+    {
+      "id": "edge.gateway-identity",
+      "source": "node.gateway",
+      "target": "node.identity",
+      "type": "uses"
+    },
+    {
+      "id": "edge.gateway-order",
+      "source": "node.gateway",
+      "target": "node.order",
+      "type": "uses"
+    },
+    {
+      "id": "edge.order-payment",
+      "source": "node.order",
+      "target": "node.payment",
+      "type": "dependency"
+    },
+    {
+      "id": "edge.order-bus",
+      "source": "node.order",
+      "target": "node.bus",
+      "label": "OrderCreated",
+      "type": "flow"
+    },
+    {
+      "id": "edge.payment-bus",
+      "source": "node.bus",
+      "target": "node.payment",
+      "label": "event",
+      "type": "flow"
+    },
+    {
+      "id": "edge.order-cache",
+      "source": "node.order",
+      "target": "node.redis",
+      "type": "uses"
+    },
+    {
+      "id": "edge.order-db",
+      "source": "node.order",
+      "target": "node.order-db",
+      "type": "uses"
+    },
+    {
+      "id": "edge.payment-provider",
+      "source": "node.payment",
+      "target": "node.payment-provider",
+      "type": "dependency"
+    }
+  ],
+  "containers": [
+    {
+      "id": "container.edge",
+      "label": "Edge",
+      "nodeIds": [
+        "node.gateway"
+      ],
+      "direction": "TOP_TO_BOTTOM"
+    },
+    {
+      "id": "container.services",
+      "label": "Service Cluster",
+      "nodeIds": [
+        "node.identity",
+        "node.order",
+        "node.payment",
+        "node.bus"
+      ],
+      "direction": "TOP_TO_BOTTOM"
+    },
+    {
+      "id": "container.data",
+      "label": "Data Stores",
+      "nodeIds": [
+        "node.redis",
+        "node.order-db"
+      ],
+      "direction": "TOP_TO_BOTTOM"
+    }
+  ],
+  "metadata": {
+    "preset": "event-driven"
+  }
+}

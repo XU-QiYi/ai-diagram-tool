@@ -1,0 +1,70 @@
+{
+  "id": "generated-sequence",
+  "title": "Sequence Diagram",
+  "type": "sequence",
+  "direction": "LEFT_TO_RIGHT",
+  "nodes": [
+    {
+      "id": "participant.client",
+      "label": "Client",
+      "kind": "participant"
+    },
+    {
+      "id": "participant.service",
+      "label": "Service",
+      "kind": "participant"
+    },
+    {
+      "id": "participant.db",
+      "label": "Database",
+      "kind": "participant"
+    }
+  ],
+  "edges": [
+    {
+      "id": "message.client-service",
+      "source": "participant.client",
+      "target": "participant.service",
+      "label": "request()",
+      "type": "flow",
+      "messageKind": "call"
+    },
+    {
+      "id": "message.service-db",
+      "source": "participant.service",
+      "target": "participant.db",
+      "label": "query()",
+      "type": "flow",
+      "messageKind": "call"
+    },
+    {
+      "id": "message.db-service",
+      "source": "participant.db",
+      "target": "participant.service",
+      "label": "result",
+      "type": "flow",
+      "messageKind": "return"
+    }
+  ],
+  "sequence": {
+    "activations": [
+      {
+        "id": "activation.service",
+        "participantId": "participant.service",
+        "startMessageId": "message.client-service",
+        "endMessageId": "message.db-service"
+      }
+    ],
+    "fragments": [
+      {
+        "id": "fragment.alt",
+        "operator": "alt",
+        "guard": "valid request",
+        "messageIds": [
+          "message.client-service",
+          "message.service-db"
+        ]
+      }
+    ]
+  }
+}

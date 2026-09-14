@@ -1,0 +1,65 @@
+{
+  "id": "generated-state",
+  "title": "State Diagram",
+  "type": "state",
+  "direction": "LEFT_TO_RIGHT",
+  "nodes": [
+    {
+      "id": "state.initial",
+      "label": "Initial",
+      "kind": "start"
+    },
+    {
+      "id": "state.pending",
+      "label": "Pending",
+      "kind": "state"
+    },
+    {
+      "id": "state.active",
+      "label": "Active",
+      "kind": "state"
+    },
+    {
+      "id": "state.closed",
+      "label": "Closed",
+      "kind": "end"
+    }
+  ],
+  "edges": [
+    {
+      "id": "transition.initial-pending",
+      "source": "state.initial",
+      "target": "state.pending",
+      "type": "flow"
+    },
+    {
+      "id": "transition.pending-active",
+      "source": "state.pending",
+      "target": "state.active",
+      "label": "[approved] / activate",
+      "guard": "[approved]",
+      "action": "activate",
+      "type": "flow"
+    },
+    {
+      "id": "transition.active-closed",
+      "source": "state.active",
+      "target": "state.closed",
+      "label": "complete / close",
+      "action": "close",
+      "type": "flow"
+    }
+  ],
+  "state": {
+    "composites": [
+      {
+        "id": "composite.order",
+        "label": "Order Lifecycle",
+        "nodeIds": [
+          "state.pending",
+          "state.active"
+        ]
+      }
+    ]
+  }
+}

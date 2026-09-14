@@ -1,0 +1,108 @@
+@startuml 社区闲置工具共享租借平台用例图
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "普通用户" as User
+actor "管理员" as Admin
+actor "系统" as System
+
+rectangle "工具共享租借平台" {
+
+  package "用户管理" {
+    usecase "用户注册" as UC1
+    usecase "用户登录" as UC2
+    usecase "管理个人信息" as UC3
+  }
+
+  package "工具管理" {
+    usecase "浏览工具" as UC4
+    usecase "搜索工具" as UC5
+    usecase "发布工具" as UC6
+    usecase "编辑工具信息" as UC7
+    usecase "删除工具" as UC8
+  }
+
+  package "租借管理" {
+    usecase "申请租借" as UC9
+    usecase "确认租借" as UC10
+    usecase "归还工具" as UC11
+    usecase "处理支付" as UC12
+  }
+
+  package "评价管理" {
+    usecase "评价工具" as UC13
+    usecase "查看评价" as UC14
+  }
+
+  package "消息管理" {
+    usecase "查看消息" as UC15
+    usecase "发送通知" as UC16
+  }
+
+  package "后台管理" {
+    usecase "用户管理" as UC17
+    usecase "工具审核" as UC18
+    usecase "数据统计" as UC19
+    usecase "系统配置" as UC20
+  }
+}
+
+' 普通用户关系
+User --> UC1
+User --> UC2
+User --> UC3
+User --> UC4
+User --> UC5
+User --> UC6
+User --> UC7
+User --> UC8
+User --> UC9
+User --> UC10
+User --> UC11
+User --> UC13
+User --> UC14
+User --> UC15
+
+' 管理员关系
+Admin --> UC2
+Admin --> UC4
+Admin --> UC17
+Admin --> UC18
+Admin --> UC19
+Admin --> UC20
+
+' 系统关系
+System --> UC16
+System --> UC12
+
+' 包含关系 (include)
+UC6 ..> UC2 : <<include>>
+UC9 ..> UC2 : <<include>>
+UC13 ..> UC11 : <<include>>
+UC9 ..> UC12 : <<include>>
+
+' 扩展关系 (extend)
+UC5 ..> UC4 : <<extend>>
+UC7 ..> UC6 : <<extend>>
+
+' 泛化关系
+Admin -|> User
+
+note right of UC16
+  系统自动发送
+  租借、归还、评价
+  等相关通知
+end note
+
+note right of UC12
+  支持多种支付方式
+  自动结算押金
+end note
+
+note bottom of UC18
+  审核工具发布内容
+  确保平台安全
+end note
+
+@enduml

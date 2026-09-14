@@ -1,0 +1,398 @@
+import ELK from "@elkjs/elkjs";
+import type {
+  Container,
+  Diagram,
+  Direction,
+  LayoutContainer,
+  LayoutDensity,
+  LayoutEdge,
+  LayoutNode,
+  LayoutPort,
+  LayoutResult,
+} from "../model/types.js";
+import { validateLayout } from "../validate/index.js";
+import { measureLabel, measureNode } from "../utils/text.js";
+
+const elk = new (ELK as any)();
+const directionMap: Record<Direction, string> = {
+  LEFT_TO_RIGHT: "RIGHT",
+  RIGHT_TO_LEFT: "LEFT",
+  TOP_TO_BOTTOM: "DOWN",
+  BOTTOM_TO_TOP: "UP",
+};
+
+interface LayoutProfile {
+  nodeSpacing: number;
+  layerSpacing: number;
+  containerPadding: number;
+  targetAspectRatio: number;
+  wrapping: 'OFF' | 'SINGLE_EDGE' | 'MULTI_EDGE';
+}
+
+const densitySpacing: Record<LayoutDensity, { node: number; layer: number; padding: number }> = {
+  compact: { node: 45, layer: 60, padding: 22 },
+  balanced: { node: 60, layer: 78, padding: 28 },
+  spacious: { node: 85, layer: 110, padding: 36 },
+};
+
+function defaultAspectRatio(diagram: Diagram): number {
+  if (diagram.type === 'flowchart') return 1.05;
+  if (diagram.type === 'state' || diagram.type === 'state-machine' || diagram.type === 'activity') return 0.9;
+  if (diagram.type === 'system-architecture' || diagram.type === 'deployment') return 1.2;
+  if (diagram.type === 'uml-class' || diagram.type === 'uml-usecase' || diagram.type === 'uml-component' || diagram.type === 'er' || diagram.type === 'chen-er') return 1.35;
+  return 1.15;
+}
+
+function layoutProfile(diagram: Diagram): LayoutProfile {
+  const density = diagram.layout?.density ?? 'balanced';
+  const defaults = densitySpacing[density];
+  // ELK graph wrapping is useful for long acyclic flows, but it can create
+  // very long back edges in cyclic state machines. Keep it opt-in for state
+  // machines and use the aspect-ratio hint for the normal balanced layout.
+  const autoWrap = false;
+  const requestedWrapping = diagram.layout?.wrapping ?? 'AUTO';
+  const compactFlow = diagram.type === 'flowchart';
+  const compactStateMachine = diagram.type === 'state-machine';
+  return {
+    nodeSpacing: diagram.layout?.nodeSpacing ?? (compactFlow ? 30 : compactStateMachine ? 40 : defaults.node),
+    layerSpacing: diagram.layout?.layerSpacing ?? (compactFlow ? 28 : compactStateMachine ? 46 : defaults.layer),
+    containerPadding: diagram.layout?.containerPadding ?? defaults.padding,
+    targetAspectRatio: diagram.layout?.targetAspectRatio ?? defaultAspectRatio(diagram),
+    wrapping: requestedWrapping === 'AUTO' ? (autoWrap ? 'MULTI_EDGE' : 'OFF') : requestedWrapping,
+  };
+}
+
+export function effectiveContainers(diagram: Diagram): Container[] {
+  const activity = (diagram.activity?.swimlanes ?? []).map(
+    (l) =>
+      ({
+        id: l.id,
+        label: l.label,
+        nodeIds: l.nodeIds,
+        direction: diagram.direction,
+        style: { fill: "#FFFFFF", stroke: "#94A3B8", text: "#334155" },
+      }) satisfies Container,
+  );
+  const states = (diagram.state?.composites ?? []).map(
+    (c) =>
+      ({
+        id: c.id,
+        label: c.label,
+        nodeIds: c.nodeIds,
+        direction: c.direction ?? diagram.direction,
+        style: { fill: "#F8FAFC", stroke: "#64748B", text: "#334155" },
+      }) satisfies Container,
+  );
+  return [...(diagram.containers ?? []), ...activity, ...states];
+}
+
+function algorithmFor(diagram: Diagram): string {
+  return diagram.type === "mindmap"
+    ? "mrtree"
+    : diagram.type === "network" || diagram.type === "chen-er"
+      ? "stress"
+      : "layered";
+}
+
+function orderedIds(
+  ids: string[],
+  before: Array<[string, string]> = [],
+): string[] {
+  const order = new Map(ids.map((id, i) => [id, i]));
+  const incoming = new Map(ids.map((id) => [id, 0]));
+  const outgoing = new Map(ids.map((id) => [id, [] as string[]]));
+  for (const [a, b] of before)
+    if (incoming.has(a) && incoming.has(b)) {
+      outgoing.get(a)!.push(b);
+      incoming.set(b, incoming.get(b)! + 1);
+    }
+  const queue = ids
+    .filter((id) => incoming.get(id) === 0)
+    .sort((a, b) => order.get(a)! - order.get(b)!);
+  const result: string[] = [];
+  while (queue.length) {
+    const id = queue.shift()!;
+    result.push(id);
+    for (const next of outgoing.get(id)!) {
+      incoming.set(next, incoming.get(next)! - 1);
+      if (incoming.get(next) === 0) queue.push(next);
+    }
+    queue.sort((a, b) => order.get(a)! - order.get(b)!);
+  }
+  return result.length === ids.length ? result : ids;
+}
+
+function buildElkGraph(diagram: Diagram, profile: LayoutProfile) {
+  const containers = effectiveContainers(diagram);
+  const childOwner = new Map<string, string>();
+  for (const c of containers) {
+    if (c.parentId) childOwner.set(c.id, c.parentId);
+    for (const child of c.containerIds ?? []) childOwner.set(child, c.id);
+  }
+  const nodeOwner = new Map<string, string>();
+  for (const n of diagram.nodes)
+    if (n.containerId) nodeOwner.set(n.id, n.containerId);
+  for (const c of containers)
+    for (const id of c.nodeIds) if (!nodeOwner.has(id)) nodeOwner.set(id, c.id);
+  const sameLayer = new Map<string, number>();
+  (diagram.constraints?.sameLayer ?? []).forEach((group, i) =>
+    group.forEach((id) => sameLayer.set(id, i)),
+  );
+  const placement = diagram.constraints?.placement ?? {};
+  const makeNode = (node: Diagram["nodes"][number]): any => {
+    const size = measureNode(node, diagram.type);
+    const layoutOptions: Record<string, string> = {};
+    if (node.ports?.length) layoutOptions["elk.portConstraints"] = "FIXED_SIDE";
+    if (placement[node.id])
+      layoutOptions["elk.layered.layering.layerConstraint"] =
+        placement[node.id];
+    if (sameLayer.has(node.id))
+      layoutOptions["elk.layered.layering.layerChoiceConstraint"] = String(
+        sameLayer.get(node.id),
+      );
+    return {
+      id: node.id,
+      ...size,
+      layoutOptions,
+      labels: [{ text: node.label }],
+      ports: node.ports?.map((p) => ({
+        id: p.id,
+        width: p.width ?? 8,
+        height: p.height ?? 8,
+        layoutOptions: { "elk.port.side": p.side ?? "EAST" },
+        labels: p.label ? [{ text: p.label }] : undefined,
+      })),
+    };
+  };
+  const allOrder = orderedIds(
+    [...diagram.nodes.map((n) => n.id), ...containers.map((c) => c.id)],
+    diagram.constraints?.before,
+  );
+  const rank = new Map(allOrder.map((id, i) => [id, i]));
+  const makeContainer = (container: Container): any => {
+    const children = [
+      ...diagram.nodes
+        .filter((n) => nodeOwner.get(n.id) === container.id)
+        .map(makeNode),
+      ...containers
+        .filter((c) => childOwner.get(c.id) === container.id)
+        .map(makeContainer),
+    ].sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+    const pad = container.padding ?? profile.containerPadding,
+      top = Math.max(45, pad + 15);
+    return {
+      id: container.id,
+      children,
+      labels: [{ text: container.label, ...measureLabel(container.label, 14) }],
+      layoutOptions: {
+        "elk.algorithm": "layered",
+        "elk.direction":
+          directionMap[
+            container.direction ?? diagram.direction ?? "LEFT_TO_RIGHT"
+          ],
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.spacing.nodeNode": String(
+          container.spacing ?? profile.nodeSpacing,
+        ),
+        "elk.layered.spacing.nodeNodeBetweenLayers": String(
+          container.spacing ?? profile.layerSpacing,
+        ),
+        "elk.padding": `[top=${top},left=${pad},bottom=${pad},right=${pad}]`,
+      },
+    };
+  };
+  const children = [
+    ...diagram.nodes.filter((n) => !nodeOwner.has(n.id)).map(makeNode),
+    ...containers.filter((c) => !childOwner.has(c.id)).map(makeContainer),
+  ].sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+  const algorithm = algorithmFor(diagram);
+  return {
+    id: diagram.id,
+    layoutOptions: {
+      "elk.algorithm": algorithm,
+      "elk.direction":
+        directionMap[
+          diagram.direction ??
+            (diagram.type === "flowchart" || diagram.type === "activity"
+              ? "TOP_TO_BOTTOM"
+              : "LEFT_TO_RIGHT")
+        ],
+      "elk.hierarchyHandling": "INCLUDE_CHILDREN",
+      "elk.edgeRouting":
+        diagram.routing === "POLYLINE" || algorithm !== "layered"
+          ? "POLYLINE"
+          : "ORTHOGONAL",
+      "elk.spacing.nodeNode": String(profile.nodeSpacing),
+      "elk.layered.spacing.nodeNodeBetweenLayers": String(profile.layerSpacing),
+      "elk.aspectRatio": String(profile.targetAspectRatio),
+      "elk.layered.wrapping.strategy": profile.wrapping,
+      "elk.layered.wrapping.additionalEdgeSpacing": String(Math.max(20, Math.round(profile.nodeSpacing / 2))),
+      "elk.layered.wrapping.multiEdge.improveCuts": "true",
+      "elk.layered.wrapping.multiEdge.improveWrappedEdges": "true",
+      "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+      "elk.layered.nodePlacement.strategy":
+        diagram.type === "uml-class" ? "NETWORK_SIMPLEX" : "BRANDES_KOEPF",
+      "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
+      "elk.layered.unnecessaryBendpoints": "true",
+      "elk.stress.desiredEdgeLength": String(
+        diagram.type === "chen-er" ? profile.nodeSpacing + 120 : profile.nodeSpacing + 160,
+      ),
+      "elk.spacing.componentComponent": String(profile.nodeSpacing),
+      "elk.padding": "[top=40,left=40,bottom=40,right=40]",
+    },
+    children,
+    edges: diagram.edges.map((e) => {
+      const measured = e.label ? measureLabel(e.label) : undefined;
+      return {
+        id: e.id,
+        sources: [e.sourcePort ?? e.source],
+        targets: [e.targetPort ?? e.target],
+        labels: e.label ? [{ text: e.label, ...measured }] : undefined,
+      };
+    }),
+  };
+}
+
+function flattenLayout(diagram: Diagram, result: any) {
+  const nodesById = new Map(diagram.nodes.map((n) => [n.id, n]));
+  const containersById = new Map(
+    effectiveContainers(diagram).map((c) => [c.id, c]),
+  );
+  const nodes: LayoutNode[] = [];
+  const containers: LayoutContainer[] = [];
+  const walk = (children: any[] = [], offsetX = 0, offsetY = 0, depth = 0) => {
+    for (const child of children) {
+      const x = offsetX + (child.x ?? 0),
+        y = offsetY + (child.y ?? 0);
+      const modelNode = nodesById.get(child.id),
+        modelContainer = containersById.get(child.id);
+      if (modelNode) {
+        const ports: LayoutPort[] = (child.ports ?? []).map((p: any) => ({
+          ...(modelNode.ports?.find((mp) => mp.id === p.id) ?? { id: p.id }),
+          nodeId: child.id,
+          x: x + (p.x ?? 0),
+          y: y + (p.y ?? 0),
+          width: p.width ?? 8,
+          height: p.height ?? 8,
+        }));
+        nodes.push({
+          ...modelNode,
+          x,
+          y,
+          width: child.width,
+          height: child.height,
+          layoutPorts: ports,
+        });
+      } else if (modelContainer) {
+        containers.push({
+          ...modelContainer,
+          x,
+          y,
+          width: child.width ?? 0,
+          height: child.height ?? 0,
+          depth,
+        });
+        walk(child.children, x, y, depth + 1);
+      }
+    }
+  };
+  walk(result.children);
+  const models = effectiveContainers(diagram),
+    parent = new Map<string, string>();
+  for (const c of models) {
+    if (c.parentId) parent.set(c.id, c.parentId);
+    for (const child of c.containerIds ?? []) parent.set(child, c.id);
+  }
+  const owner = new Map<string, string>();
+  for (const n of diagram.nodes)
+    if (n.containerId) owner.set(n.id, n.containerId);
+  for (const c of models)
+    for (const id of c.nodeIds) if (!owner.has(id)) owner.set(id, c.id);
+  const ancestors = (id?: string) => {
+    const values: string[] = [];
+    while (id) {
+      values.push(id);
+      id = parent.get(id);
+    }
+    return values;
+  };
+  const commonContainer = (a: string, b: string) => {
+    const right = new Set(ancestors(owner.get(b)));
+    return ancestors(owner.get(a)).find((id) => right.has(id));
+  };
+  const absoluteContainer = new Map(containers.map((c) => [c.id, c]));
+  const edges: LayoutEdge[] = diagram.edges.map((e) => {
+    const p = result.edges?.find((x: any) => x.id === e.id);
+    const common = absoluteContainer.get(
+      commonContainer(e.source, e.target) ?? "",
+    );
+    const ox = common?.x ?? 0,
+      oy = common?.y ?? 0;
+    const point = (v: any) => ({ x: (v?.x ?? 0) + ox, y: (v?.y ?? 0) + oy });
+    return {
+      ...e,
+      sections: p?.sections?.map((s: any) => ({
+        startPoint: point(s.startPoint),
+        endPoint: point(s.endPoint),
+        bendPoints: s.bendPoints?.map(point),
+      })),
+      labels: p?.labels?.map((l: any) => ({
+        x: (l.x ?? 0) + ox,
+        y: (l.y ?? 0) + oy,
+        width: l.width ?? 0,
+        height: l.height ?? 0,
+        text: l.text ?? e.label ?? "",
+      })),
+    };
+  });
+  return { nodes, containers, edges };
+}
+
+function shouldRelayout(warnings: string[]) {
+  return warnings.some((w) =>
+    /Node overlap|Edge crossing|Edge through node|Canvas overflow|label overlap|Excessive density/.test(
+      w,
+    ),
+  );
+}
+
+export async function layoutDiagram(
+  diagram: Diagram,
+  maxIterations = 5,
+): Promise<LayoutResult> {
+  const base = layoutProfile(diagram);
+  let profile: LayoutProfile = { ...base };
+  let fallbackWarning: string | undefined;
+  let last: LayoutResult | undefined;
+  for (let iteration = 1; iteration <= maxIterations; iteration++) {
+    let result: any;
+    try {
+      result = await elk.layout(buildElkGraph(diagram, profile));
+    } catch (error) {
+      if (profile.wrapping === 'OFF') throw error;
+      // Some ELK versions reject graph wrapping for cyclic or compound graphs.
+      // Preserve a safe result and make the fallback explicit to the caller.
+      profile = { ...profile, wrapping: 'OFF' };
+      fallbackWarning = 'ELK graph wrapping was not applicable; used safe non-wrapped layout';
+      result = await elk.layout(buildElkGraph(diagram, profile));
+    }
+    const flat = flattenLayout(diagram, result);
+    last = {
+      diagram,
+      ...flat,
+      width: Math.max(1, result.width ?? 0),
+      height: Math.max(1, result.height ?? 0),
+      warnings: fallbackWarning ? [fallbackWarning] : [],
+      iterations: iteration,
+    };
+    const report = validateLayout(last);
+    last.warnings = [...new Set([...(fallbackWarning ? [fallbackWarning] : []), ...report.warnings])];
+    if (!shouldRelayout(report.warnings)) return last;
+    profile = {
+      ...profile,
+      nodeSpacing: profile.nodeSpacing + 18,
+      layerSpacing: profile.layerSpacing + 24,
+    };
+  }
+  return last!;
+}

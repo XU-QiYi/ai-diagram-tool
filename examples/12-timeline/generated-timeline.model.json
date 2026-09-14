@@ -1,0 +1,37 @@
+{
+  "id": "generated-timeline",
+  "title": "Timeline",
+  "type": "timeline",
+  "direction": "LEFT_TO_RIGHT",
+  "nodes": [
+    {
+      "id": "milestone.one",
+      "label": "Phase 1",
+      "kind": "milestone"
+    },
+    {
+      "id": "milestone.two",
+      "label": "Phase 2",
+      "kind": "milestone"
+    },
+    {
+      "id": "milestone.three",
+      "label": "Phase 3",
+      "kind": "milestone"
+    }
+  ],
+  "edges": [
+    {
+      "id": "timeline.one-two",
+      "source": "milestone.one",
+      "target": "milestone.two",
+      "type": "flow"
+    },
+    {
+      "id": "timeline.two-three",
+      "source": "milestone.two",
+      "target": "milestone.three",
+      "type": "flow"
+    }
+  ]
+}

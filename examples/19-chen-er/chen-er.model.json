@@ -1,0 +1,548 @@
+{
+  "id": "chen-er",
+  "title": "Chen ER Diagram",
+  "type": "chen-er",
+  "direction": "LEFT_TO_RIGHT",
+  "layout": {
+    "density": "compact",
+    "nodeSpacing": 28,
+    "layerSpacing": 36,
+    "targetAspectRatio": 1.25
+  },
+  "nodes": [
+    {
+      "id": "entity.scenic-spot",
+      "label": "景点",
+      "kind": "entity",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=rectangle;rounded=0"
+      },
+      "width": 150,
+      "height": 64
+    },
+    {
+      "id": "entity.account",
+      "label": "账户",
+      "kind": "entity",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=rectangle;rounded=0"
+      },
+      "width": 150,
+      "height": 64
+    },
+    {
+      "id": "entity.order",
+      "label": "订单",
+      "kind": "entity",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=rectangle;rounded=0"
+      },
+      "width": 150,
+      "height": 64
+    },
+    {
+      "id": "entity.room",
+      "label": "住房",
+      "kind": "entity",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=rectangle;rounded=0"
+      },
+      "width": 150,
+      "height": 64
+    },
+    {
+      "id": "entity.ride",
+      "label": "网约车",
+      "kind": "entity",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=rectangle;rounded=0"
+      },
+      "width": 150,
+      "height": 64
+    },
+    {
+      "id": "attribute.spot-name",
+      "label": "景点名称",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.spot-rate",
+      "label": "好评率",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.spot-like",
+      "label": "点赞率",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.spot-address",
+      "label": "景点地址",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.spot-info",
+      "label": "景点信息",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.account-id",
+      "label": "账号 id",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.account-name",
+      "label": "姓名",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.account-password",
+      "label": "密码",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.account-gender",
+      "label": "性别",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.account-interest",
+      "label": "兴趣爱好",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.account-job",
+      "label": "职业",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.order-id",
+      "label": "订单号",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.order-amount",
+      "label": "订单金额",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.order-info",
+      "label": "订单信息",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.room-location",
+      "label": "住房位置",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.room-info",
+      "label": "住房信息",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.room-subscription",
+      "label": "订房号",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.ride-id",
+      "label": "网约车牌",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "attribute.ride-time",
+      "label": "预约时间",
+      "kind": "attribute",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=ellipse"
+      }
+    },
+    {
+      "id": "relationship.choose",
+      "label": "选择",
+      "kind": "relationship",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=rhombus"
+      },
+      "width": 110,
+      "height": 64
+    },
+    {
+      "id": "relationship.place-order",
+      "label": "下单",
+      "kind": "relationship",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=rhombus"
+      },
+      "width": 110,
+      "height": 64
+    },
+    {
+      "id": "relationship.subscribe",
+      "label": "订阅",
+      "kind": "relationship",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=rhombus"
+      },
+      "width": 110,
+      "height": 64
+    },
+    {
+      "id": "relationship.book-ride",
+      "label": "预约",
+      "kind": "relationship",
+      "style": {
+        "fill": "#FFFFFF",
+        "stroke": "#1F2937",
+        "text": "#111827",
+        "shape": "shape=rhombus"
+      },
+      "width": 110,
+      "height": 64
+    }
+  ],
+  "edges": [
+    {
+      "id": "chen.spot-name",
+      "source": "entity.scenic-spot",
+      "target": "attribute.spot-name",
+      "type": "association"
+    },
+    {
+      "id": "chen.spot-rate",
+      "source": "entity.scenic-spot",
+      "target": "attribute.spot-rate",
+      "type": "association"
+    },
+    {
+      "id": "chen.spot-like",
+      "source": "entity.scenic-spot",
+      "target": "attribute.spot-like",
+      "type": "association"
+    },
+    {
+      "id": "chen.spot-address",
+      "source": "entity.scenic-spot",
+      "target": "attribute.spot-address",
+      "type": "association"
+    },
+    {
+      "id": "chen.spot-info",
+      "source": "entity.scenic-spot",
+      "target": "attribute.spot-info",
+      "type": "association"
+    },
+    {
+      "id": "chen.account-id",
+      "source": "entity.account",
+      "target": "attribute.account-id",
+      "type": "association"
+    },
+    {
+      "id": "chen.account-name",
+      "source": "entity.account",
+      "target": "attribute.account-name",
+      "type": "association"
+    },
+    {
+      "id": "chen.account-password",
+      "source": "entity.account",
+      "target": "attribute.account-password",
+      "type": "association"
+    },
+    {
+      "id": "chen.account-gender",
+      "source": "entity.account",
+      "target": "attribute.account-gender",
+      "type": "association"
+    },
+    {
+      "id": "chen.account-interest",
+      "source": "entity.account",
+      "target": "attribute.account-interest",
+      "type": "association"
+    },
+    {
+      "id": "chen.account-job",
+      "source": "entity.account",
+      "target": "attribute.account-job",
+      "type": "association"
+    },
+    {
+      "id": "chen.order-id",
+      "source": "entity.order",
+      "target": "attribute.order-id",
+      "type": "association"
+    },
+    {
+      "id": "chen.order-amount",
+      "source": "entity.order",
+      "target": "attribute.order-amount",
+      "type": "association"
+    },
+    {
+      "id": "chen.order-info",
+      "source": "entity.order",
+      "target": "attribute.order-info",
+      "type": "association"
+    },
+    {
+      "id": "chen.room-location",
+      "source": "entity.room",
+      "target": "attribute.room-location",
+      "type": "association"
+    },
+    {
+      "id": "chen.room-info",
+      "source": "entity.room",
+      "target": "attribute.room-info",
+      "type": "association"
+    },
+    {
+      "id": "chen.room-subscription",
+      "source": "entity.room",
+      "target": "attribute.room-subscription",
+      "type": "association"
+    },
+    {
+      "id": "chen.ride-id",
+      "source": "entity.ride",
+      "target": "attribute.ride-id",
+      "type": "association"
+    },
+    {
+      "id": "chen.ride-time",
+      "source": "entity.ride",
+      "target": "attribute.ride-time",
+      "type": "association"
+    },
+    {
+      "id": "chen.account-choose",
+      "source": "entity.account",
+      "target": "relationship.choose",
+      "label": "M",
+      "type": "association"
+    },
+    {
+      "id": "chen.spot-choose",
+      "source": "entity.scenic-spot",
+      "target": "relationship.choose",
+      "label": "N",
+      "type": "association"
+    },
+    {
+      "id": "chen.account-order",
+      "source": "entity.account",
+      "target": "relationship.place-order",
+      "label": "1",
+      "type": "association"
+    },
+    {
+      "id": "chen.order-place-order",
+      "source": "entity.order",
+      "target": "relationship.place-order",
+      "label": "N",
+      "type": "association"
+    },
+    {
+      "id": "chen.account-subscribe",
+      "source": "entity.account",
+      "target": "relationship.subscribe",
+      "label": "N",
+      "type": "association"
+    },
+    {
+      "id": "chen.room-subscribe",
+      "source": "entity.room",
+      "target": "relationship.subscribe",
+      "label": "1",
+      "type": "association"
+    },
+    {
+      "id": "chen.account-book-ride",
+      "source": "entity.account",
+      "target": "relationship.book-ride",
+      "label": "N",
+      "type": "association"
+    },
+    {
+      "id": "chen.ride-book-ride",
+      "source": "entity.ride",
+      "target": "relationship.book-ride",
+      "label": "M",
+      "type": "association"
+    }
+  ],
+  "chenEr": {
+    "entityIds": [
+      "entity.scenic-spot",
+      "entity.account",
+      "entity.order",
+      "entity.room",
+      "entity.ride"
+    ],
+    "attributeIds": [
+      "attribute.spot-name",
+      "attribute.spot-rate",
+      "attribute.spot-like",
+      "attribute.spot-address",
+      "attribute.spot-info",
+      "attribute.account-id",
+      "attribute.account-name",
+      "attribute.account-password",
+      "attribute.account-gender",
+      "attribute.account-interest",
+      "attribute.account-job",
+      "attribute.order-id",
+      "attribute.order-amount",
+      "attribute.order-info",
+      "attribute.room-location",
+      "attribute.room-info",
+      "attribute.room-subscription",
+      "attribute.ride-id",
+      "attribute.ride-time"
+    ],
+    "relationshipIds": [
+      "relationship.choose",
+      "relationship.place-order",
+      "relationship.subscribe",
+      "relationship.book-ride"
+    ]
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "id": "generated-state-machine",
+  "title": "UML State Machine Diagram",
+  "type": "state-machine",
+  "direction": "TOP_TO_BOTTOM",
+  "nodes": [
+    {
+      "id": "machine.initial",
+      "label": "Initial",
+      "kind": "start"
+    },
+    {
+      "id": "machine.idle",
+      "label": "Idle",
+      "kind": "state",
+      "stateBehavior": {
+        "entry": "reset()",
+        "do": "waitForRequest()"
+      }
+    },
+    {
+      "id": "machine.processing",
+      "label": "Processing",
+      "kind": "state",
+      "stateBehavior": {
+        "entry": "startTimer()",
+        "do": "process()",
+        "exit": "stopTimer()"
+      }
+    },
+    {
+      "id": "machine.completed",
+      "label": "Completed",
+      "kind": "state",
+      "stateBehavior": {
+        "entry": "notifyResult()"
+      }
+    },
+    {
+      "id": "machine.failed",
+      "label": "Failed",
+      "kind": "state",
+      "stateBehavior": {
+        "entry": "recordError()"
+      }
+    },
+    {
+      "id": "machine.final",
+      "label": "Final",
+      "kind": "end"
+    }
+  ],
+  "edges": [
+    {
+      "id": "machine.initial-idle",
+      "source": "machine.initial",
+      "target": "machine.idle",
+      "type": "flow"
+    },
+    {
+      "id": "machine.idle-processing",
+      "source": "machine.idle",
+      "target": "machine.processing",
+      "label": "submit [valid] / accept()",
+      "guard": "[valid]",
+      "action": "accept()",
+      "type": "flow"
+    },
+    {
+      "id": "machine.processing-completed",
+      "source": "machine.processing",
+      "target": "machine.completed",
+      "label": "done / commit()",
+      "action": "commit()",
+      "type": "flow"
+    },
+    {
+      "id": "machine.processing-failed",
+      "source": "machine.processing",
+      "target": "machine.failed",
+      "label": "error [retryCount = 0] / rollback()",
+      "guard": "[retryCount = 0]",
+      "action": "rollback()",
+      "type": "flow"
+    },
+    {
+      "id": "machine.failed-processing",
+      "source": "machine.failed",
+      "target": "machine.processing",
+      "label": "retry [retryCount > 0] / decrement()",
+      "guard": "[retryCount > 0]",
+      "action": "decrement()",
+      "type": "flow"
+    },
+    {
+      "id": "machine.completed-final",
+      "source": "machine.completed",
+      "target": "machine.final",
+      "type": "flow"
+    }
+  ],
+  "state": {
+    "composites": [
+      {
+        "id": "machine.composite.execution",
+        "label": "Execution",
+        "nodeIds": [
+          "machine.processing",
+          "machine.failed"
+        ],
+        "direction": "TOP_TO_BOTTOM"
+      }
+    ]
+  }
+}

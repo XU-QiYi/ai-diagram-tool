@@ -1,0 +1,108 @@
+{
+  "id": "uml-usecase",
+  "title": "UML Use Case Diagram",
+  "type": "uml-usecase",
+  "direction": "LEFT_TO_RIGHT",
+  "nodes": [
+    {
+      "id": "actor.admin",
+      "label": "Admin",
+      "kind": "actor",
+      "width": 130,
+      "height": 100
+    },
+    {
+      "id": "actor.user",
+      "label": "User",
+      "kind": "actor",
+      "width": 130,
+      "height": 100
+    },
+    {
+      "id": "usecase.manage",
+      "label": "Manage System",
+      "kind": "usecase",
+      "width": 200,
+      "height": 70
+    },
+    {
+      "id": "usecase.browse",
+      "label": "Browse Tools",
+      "kind": "usecase",
+      "width": 200,
+      "height": 70
+    },
+    {
+      "id": "usecase.rent",
+      "label": "Rent Tool",
+      "kind": "usecase",
+      "width": 200,
+      "height": 70
+    },
+    {
+      "id": "usecase.reset-password",
+      "label": "Reset Password",
+      "kind": "usecase",
+      "width": 200,
+      "height": 70
+    },
+    {
+      "id": "usecase.login",
+      "label": "Authenticate",
+      "kind": "usecase",
+      "width": 200,
+      "height": 70
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge.user-browse",
+      "source": "actor.user",
+      "target": "usecase.browse",
+      "type": "association"
+    },
+    {
+      "id": "edge.user-rent",
+      "source": "actor.user",
+      "target": "usecase.rent",
+      "type": "association"
+    },
+    {
+      "id": "edge.admin-manage",
+      "source": "actor.admin",
+      "target": "usecase.manage",
+      "type": "association"
+    },
+    {
+      "id": "edge.admin-user",
+      "source": "actor.admin",
+      "target": "actor.user",
+      "type": "generalization"
+    },
+    {
+      "id": "edge.rent-login",
+      "source": "usecase.rent",
+      "target": "usecase.login",
+      "type": "include"
+    },
+    {
+      "id": "edge.reset-login",
+      "source": "usecase.reset-password",
+      "target": "usecase.login",
+      "type": "extend"
+    }
+  ],
+  "containers": [
+    {
+      "id": "boundary.system",
+      "label": "Tool Sharing System",
+      "nodeIds": [
+        "usecase.browse",
+        "usecase.rent",
+        "usecase.login",
+        "usecase.manage",
+        "usecase.reset-password"
+      ]
+    }
+  ]
+}

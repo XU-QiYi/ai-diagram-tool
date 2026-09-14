@@ -1,0 +1,67 @@
+{
+  "id": "flowchart",
+  "title": "Order Processing Flow",
+  "type": "flowchart",
+  "direction": "TOP_TO_BOTTOM",
+  "nodes": [
+    {
+      "id": "flow.start",
+      "label": "Start",
+      "kind": "start"
+    },
+    {
+      "id": "flow.validate",
+      "label": "Validate Order",
+      "kind": "process"
+    },
+    {
+      "id": "flow.decision",
+      "label": "Stock available?",
+      "kind": "decision"
+    },
+    {
+      "id": "flow.ship",
+      "label": "Create Shipment",
+      "kind": "process"
+    },
+    {
+      "id": "flow.end",
+      "label": "End",
+      "kind": "end"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge.start-validate",
+      "source": "flow.start",
+      "target": "flow.validate",
+      "type": "flow"
+    },
+    {
+      "id": "edge.validate-decision",
+      "source": "flow.validate",
+      "target": "flow.decision",
+      "type": "flow"
+    },
+    {
+      "id": "edge.decision-ship",
+      "source": "flow.decision",
+      "target": "flow.ship",
+      "label": "yes",
+      "type": "flow"
+    },
+    {
+      "id": "edge.ship-end",
+      "source": "flow.ship",
+      "target": "flow.end",
+      "type": "flow"
+    },
+    {
+      "id": "edge.decision-end",
+      "source": "flow.decision",
+      "target": "flow.end",
+      "label": "no",
+      "type": "flow"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "id": "generated-network",
+  "title": "Network Graph",
+  "type": "network",
+  "direction": "LEFT_TO_RIGHT",
+  "nodes": [
+    {
+      "id": "network.gateway",
+      "label": "Gateway",
+      "kind": "node"
+    },
+    {
+      "id": "network.service-a",
+      "label": "Service A",
+      "kind": "node"
+    },
+    {
+      "id": "network.service-b",
+      "label": "Service B",
+      "kind": "node"
+    },
+    {
+      "id": "network.db",
+      "label": "Data Store",
+      "kind": "database"
+    }
+  ],
+  "edges": [
+    {
+      "id": "network.gateway-a",
+      "source": "network.gateway",
+      "target": "network.service-a",
+      "type": "flow"
+    },
+    {
+      "id": "network.gateway-b",
+      "source": "network.gateway",
+      "target": "network.service-b",
+      "type": "flow"
+    },
+    {
+      "id": "network.a-db",
+      "source": "network.service-a",
+      "target": "network.db",
+      "type": "flow"
+    },
+    {
+      "id": "network.b-db",
+      "source": "network.service-b",
+      "target": "network.db",
+      "type": "flow"
+    }
+  ]
+}

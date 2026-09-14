@@ -1,0 +1,39 @@
+{
+  "id": "er",
+  "title": "ER Diagram",
+  "type": "er",
+  "direction": "LEFT_TO_RIGHT",
+  "nodes": [
+    {
+      "id": "table.user",
+      "label": "users\\nPK id\\nemail",
+      "kind": "database"
+    },
+    {
+      "id": "table.order",
+      "label": "orders\\nPK id\\nFK user_id",
+      "kind": "database"
+    },
+    {
+      "id": "table.item",
+      "label": "order_items\\nPK id\\nFK order_id",
+      "kind": "database"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge.user-order",
+      "source": "table.user",
+      "target": "table.order",
+      "label": "1 : N",
+      "type": "foreign-key"
+    },
+    {
+      "id": "edge.order-item",
+      "source": "table.order",
+      "target": "table.item",
+      "label": "1 : N",
+      "type": "foreign-key"
+    }
+  ]
+}
