@@ -210,17 +210,22 @@ export function renderSvg(layout: LayoutResult): string {
       }),
     )
     .join("");
+  const nodeCenters = new Map(layout.nodes.map((n) => [n.id, { x: n.x + n.width / 2, y: n.y + n.height / 2 }]));
   const edges = layout.edges
     .map((e) => {
       const s = e.sections?.[0];
-      if (!s) return "";
-      const pts = [s.startPoint, ...(s.bendPoints ?? []), s.endPoint];
+      const from = s?.startPoint ?? nodeCenters.get(e.source);
+      const to = s?.endPoint ?? nodeCenters.get(e.target);
+      if (!from || !to) return "";
+      // An edge the engine never routed still has to appear: omitting it would make the
+      // preview claim a relationship does not exist. validateLayout reports EDGE_UNROUTED.
+      const pts = [from, ...(s?.bendPoints ?? []), to];
       const d = pts
         .map((p, i) => `${i ? "L" : "M"} ${p.x + pad} ${p.y + pad}`)
         .join(" ");
       const placedLabel = e.labels?.[0],
-        lx = placedLabel ? placedLabel.x + placedLabel.width / 2 + pad : (s.startPoint.x + s.endPoint.x) / 2 + pad,
-        ly = placedLabel ? placedLabel.y + placedLabel.height - 3 + pad : (s.startPoint.y + s.endPoint.y) / 2 + pad - 5;
+        lx = placedLabel ? placedLabel.x + placedLabel.width / 2 + pad : (from.x + to.x) / 2 + pad,
+        ly = placedLabel ? placedLabel.y + placedLabel.height - 3 + pad : (from.y + to.y) / 2 + pad - 5;
       const stroke = e.style?.stroke ?? "#000000";
       const text = e.style?.text ?? "#000000";
       const edgeLabel = e.label ?? (e.type === "include" ? "<<include>>" : e.type === "extend" ? "<<extend>>" : undefined);

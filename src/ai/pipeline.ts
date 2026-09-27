@@ -1,7 +1,7 @@
 import { createDiagram } from '../model/index.js';
-import { RELATIONSHIP_TYPES, type Diagram, type ValidationIssue } from '../model/types.js';
+import { RELATIONSHIP_TYPES, type Diagram, type ValidationIssue, type ValidationProfile } from '../model/types.js';
 import { layoutDiagram } from '../layout/elk.js';
-import { validateLayout, validateSemanticIssues, validateUmlIssues } from '../validate/index.js';
+import { validateLayout, validateSemanticIssues, validateUmlIssues, applyProfile } from '../validate/index.js';
 import type { PlannedDiagram, PreparedInput, QualityReport, SemanticPlan, SemanticPlanner } from './types.js';
 
 const MIN_CONFIDENCE = 0.7;
@@ -89,14 +89,15 @@ function inspect(raw: unknown, input: PreparedInput, previous?: unknown): { plan
   }
   if (['x', 'y', 'mxGraphModel', 'mxCell'].some(key => key in body)) issues.push(issue('MODEL_GEOMETRY_FORBIDDEN', 'AI supplied renderer or layout data'));
   let diagram: Diagram;
+  const requestedProfile = isRecord(body.layout) ? (body.layout as { profile?: ValidationProfile }).profile : undefined;
   try { diagram = createDiagram(body as unknown as Diagram); }
   catch (error) {
     issues.push(issue('INVALID_DIAGRAM_STRUCTURE', error instanceof Error ? error.message : String(error)));
-    return { issues, evidence };
+    return { issues: applyProfile(issues, requestedProfile), evidence };
   }
   checkStableIds(previous, diagram, issues);
   issues.push(...validateSemanticIssues(diagram), ...validateUmlIssues(diagram));
-  return { plan: { diagram, confidence: raw.confidence as number, uncertainties: raw.uncertainties as SemanticPlan['uncertainties'] }, issues, evidence };
+  return { plan: { diagram, confidence: raw.confidence as number, uncertainties: raw.uncertainties as SemanticPlan['uncertainties'] }, issues: applyProfile(issues, diagram.layout?.profile), evidence };
 }
 
 function inspectAudit(raw: unknown, input: PreparedInput, plan: SemanticPlan): { confidence: number; issues: ValidationIssue[] } {

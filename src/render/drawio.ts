@@ -4,6 +4,19 @@ import type {
   LayoutContainer,
   RelationshipType,
 } from "../model/types.js";
+import { ALLOWED_SHAPES } from "../model/index.js";
+
+/**
+ * The model layer accepts `style.shape` as either `cylinder` or `shape=cylinder`, but
+ * Draw.io honors only the prefixed form — a bare legal name used to draw a plain
+ * rectangle with no signal at all. Normalize so every legal value draws as itself.
+ */
+export function honorShapeFragment(shape: string | undefined): string | undefined {
+  if (!shape) return undefined;
+  const head = shape.split(';')[0] ?? '';
+  if (head.startsWith('shape=') || head.startsWith('rounded=')) return shape;
+  return ALLOWED_SHAPES.has(head) ? `shape=${head}${shape.slice(head.length)}` : shape;
+}
 
 const esc = (s: string) =>
   s
@@ -207,7 +220,7 @@ function nodeStyle(
               ? "#2563EB"
               : defaults.stroke);
   const shape =
-    n.style?.shape ??
+    honorShapeFragment(n.style?.shape) ??
     (weakEntity
       ? "shape=rectangle;double=1"
       : n.kind === "database"

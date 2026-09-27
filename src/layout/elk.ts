@@ -375,7 +375,9 @@ const DEFAULT_RELAYOUT_CODES = new Set([
 ]);
 
 export function shouldRelayout(issues: ValidationIssue[], diagram: Diagram) {
-  const layoutIssues = issues.filter((issue) => issue.phase === 'layout');
+  // INFO findings are reported for the author's benefit; burning a re-layout iteration
+  // on a knob that cannot change them is how the old loop wasted all five.
+  const layoutIssues = issues.filter((issue) => issue.phase === 'layout' && issue.severity !== 'INFO');
   if (!layoutIssues.length) return false;
   const customTriggers = diagram.layout?.relayoutTriggers ?? [];
   if (customTriggers.length) {

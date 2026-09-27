@@ -15,6 +15,9 @@ const goodPlan = () => ({
   uncertainties: [],
   diagram: {
     id: 'user-service', title: '调用关系', type: 'system-architecture',
+    // These tests pin the strict contract (quotes re-verified, confidence enforced);
+    // the ai-led default is covered in tests/validation-profile.test.ts.
+    layout: { profile: 'strict' },
     nodes: [
       { id: 'node.user', label: '用户', provenance: { source: 'request', quote: '用户', confidence: 0.95 } },
       { id: 'node.service', label: '服务', provenance: { source: 'request', quote: '服务', confidence: 0.95 } },

@@ -49,6 +49,9 @@ function smuggledAnswer(): AnswerLike {
 
 function unsupportedAnswer(): AnswerLike {
   const payload = answer();
+  // Opt into the strict contract: under the ai-led default an unverifiable quote is
+  // reported as INFO, so this test only proves something when it asks to be gated.
+  (payload.diagram as { layout?: unknown }).layout = { profile: 'strict' };
   (payload.diagram.nodes[2].provenance as { quote: string }).quote = '不存在的缓存服务';
   return payload;
 }

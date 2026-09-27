@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createDiagram } from '../src/model/index.js';
 import { layoutDiagram, shouldRelayout } from '../src/layout/elk.js';
 import { validateLayout } from '../src/validate/index.js';
-import { renderDrawio } from '../src/render/drawio.js';
+import { renderDrawio, honorShapeFragment } from '../src/render/drawio.js';
 import { renderSvg } from '../src/render/svg.js';
 import { umlClass, umlUseCase, chenErDiagram } from '../src/diagram-types/examples.js';
 import { sequenceDiagram } from '../src/diagram-types/extensions.js';
@@ -60,15 +60,18 @@ test('layout enforces one diagnostic iteration for a non-positive iteration limi
   assert.equal(result.iterationHistory?.length, 1);
 });
 
-test('layout status preserves semantic warnings without failing the layout', async () => {
-  const diagram = createDiagram({
-    id: 'warning-status', title: 'Warning status', type: 'timeline',
+test('notation findings block nothing under ai-led but stay WARNING under strict', async () => {
+  const make = (profile: 'ai-led' | 'strict') => createDiagram({
+    id: `warning-status-${profile}`, title: 'Warning status', type: 'timeline', layout: { profile },
     nodes: [{ id: 'node.one', label: 'One' }, { id: 'node.two', label: 'Two' }],
     edges: [{ id: 'edge.one-two', source: 'node.one', target: 'node.two', type: 'flow' }],
   });
-  const result = await layoutDiagram(diagram);
-  assert.equal(result.status, 'passed_with_warnings');
-  assert.ok(result.issues?.some(issue => issue.phase === 'semantic' && issue.severity === 'WARNING'));
+  const aiLed = await layoutDiagram(make('ai-led'));
+  assert.equal(aiLed.status, 'passed', 'a missing milestone is the author’s call, not a broken figure');
+  assert.ok(aiLed.issues?.some(i => i.code === 'TIMELINE_MISSING_MILESTONE' && i.severity === 'INFO'), 'still reported');
+  const strict = await layoutDiagram(make('strict'));
+  assert.equal(strict.status, 'passed_with_warnings');
+  assert.ok(strict.issues?.some(i => i.phase === 'semantic' && i.severity === 'WARNING'));
 });
 
 test('density profile keeps long flowcharts compact without overlap', async () => {
@@ -396,4 +399,35 @@ test('an algorithm outside LAYOUT_ALGORITHMS is refused, never silently laid out
     const diagram = { ...mindMap(), layout: { algorithm } } as any;
     await assert.rejects(() => layoutDiagram(diagram, 1), /Unsupported layout algorithm/);
   }
+});
+
+test('a legal bare shape name renders as that shape, not as a rectangle', async () => {
+  const diagram = createDiagram({
+    id: 'shape-honor', title: 'Shape honoring', type: 'system-architecture', direction: 'LEFT_TO_RIGHT',
+    nodes: [
+      { id: 'node.cyl', label: 'Store', style: { shape: 'cylinder' } },
+      { id: 'node.actor', label: 'User', style: { shape: 'umlActor' } },
+    ],
+    edges: [{ id: 'edge.cyl-actor', source: 'node.cyl', target: 'node.actor' }],
+  });
+  const xml = renderDrawio(await layoutDiagram(diagram, 2));
+  assert.match(xml, /id="node\.cyl"[^>]*shape=cylinder/);
+  assert.match(xml, /id="node\.actor"[^>]*shape=umlActor/);
+  assert.equal(honorShapeFragment('shape=cylinder'), 'shape=cylinder', 'prefixed form must pass through');
+  assert.equal(honorShapeFragment('rounded=0'), 'rounded=0');
+  assert.equal(honorShapeFragment(undefined), undefined);
+});
+
+test('an unrouted edge is reported and still drawn, never silently dropped from the preview', async () => {
+  const base = layeredArchitecture();
+  const stress = await layoutDiagram({ ...base, layout: { ...(base.layout ?? {}), algorithm: 'stress' } }, 2);
+  const unrouted = (stress.issues ?? []).filter(i => i.code === 'EDGE_UNROUTED');
+  assert.ok(unrouted.length > 0, 'this fixture must reproduce the unrouted case the old code hid');
+  assert.ok(stress.issues?.some(i => i.code === 'EDGE_UNROUTED' && i.severity === 'ERROR'), 'unrouted is honesty, not taste — it must block');
+
+  const laid = await layoutDiagram(base, 2);
+  const stripped = { ...laid, edges: laid.edges.map(e => ({ ...e, sections: undefined })) };
+  const svg = renderSvg(stripped);
+  assert.equal((svg.match(/stroke-width="1.5"/g) ?? []).length, laid.edges.length,
+    'every edge must appear in the SVG even when the engine gave it no route');
 });

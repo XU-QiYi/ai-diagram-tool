@@ -7,6 +7,12 @@ export const RELATIONSHIP_TYPES: readonly RelationshipType[] = ['association', '
 export type Visibility = '+' | '-' | '#' | '~';
 export type MessageKind = 'call' | 'return' | 'create' | 'destroy' | 'signal';
 export type LayoutDensity = 'compact' | 'balanced' | 'spacious';
+/**
+ * Who is judged. `ai-led` (default) reports notation and aesthetic findings as INFO
+ * and blocks only on structural and rendering honesty; `strict` keeps the historical
+ * severities. The profile travels with the model so every entry point agrees on it.
+ */
+export type ValidationProfile = 'ai-led' | 'strict';
 export interface Provenance { source: 'request' | 'document' | 'image' | 'template'; quote: string; confidence: number; }
 
 export interface Style { fill?: string; stroke?: string; text?: string; shape?: string; dashed?: boolean; rounded?: boolean; opacity?: number; fontSize?: number; strokeWidth?: number; lineHeight?: number; paddingX?: number; minWidth?: number; minHeight?: number; }
@@ -25,7 +31,7 @@ export interface DiagramTheme { name?: 'professional' | 'monochrome' | 'blueprin
 // purpose: they pack nodes without routing edges, so every edge would ship unrouted.
 export type LayoutAlgorithm = 'auto' | 'layered' | 'stress' | 'mrtree' | 'radial';
 export const LAYOUT_ALGORITHMS: readonly LayoutAlgorithm[] = ['auto', 'layered', 'stress', 'mrtree', 'radial'];
-export interface LayoutPreferences { density?: LayoutDensity; nodeSpacing?: number; layerSpacing?: number; containerPadding?: number; targetAspectRatio?: number; wrapping?: 'AUTO' | 'OFF' | 'SINGLE_EDGE' | 'MULTI_EDGE'; svgPad?: number; rootPadding?: number; edgeLabelFontSize?: number; edgeLength?: number; relayoutTriggers?: string[]; algorithm?: LayoutAlgorithm; }
+export interface LayoutPreferences { density?: LayoutDensity; nodeSpacing?: number; layerSpacing?: number; containerPadding?: number; targetAspectRatio?: number; wrapping?: 'AUTO' | 'OFF' | 'SINGLE_EDGE' | 'MULTI_EDGE'; svgPad?: number; rootPadding?: number; edgeLabelFontSize?: number; edgeLength?: number; relayoutTriggers?: string[]; algorithm?: LayoutAlgorithm; profile?: ValidationProfile; }
 export interface ActivationBar { id: string; participantId: string; startMessageId: string; endMessageId?: string; label?: string; }
 export interface CombinedFragment { id: string; operator: 'alt' | 'opt' | 'loop' | 'par' | 'break' | 'critical'; guard?: string; messageIds: string[]; }
 export interface SequenceMeta { activations?: ActivationBar[]; fragments?: CombinedFragment[]; }

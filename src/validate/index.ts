@@ -2,10 +2,12 @@ import type { LayoutResult, Point, ValidationIssue, ValidationReport } from '../
 import { validateSemanticIssues } from './semantics.js';
 import { validateUmlIssues } from './uml-rules.js';
 import { measureNode } from '../utils/text.js';
+import { applyProfile } from './policy.js';
 export { validateSemantics, validateSemanticIssues } from './semantics.js';
 export { validateUmlSemantics, validateUmlIssues } from './uml-rules.js';
 export { validateRenderOutputs } from './render.js';
-export type { ValidationSeverity, ValidationPhase, ValidationIssue, ValidationReport } from '../model/types.js';
+export { applyProfile, resolveProfile, DEFAULT_VALIDATION_PROFILE, AESTHETIC_LAYOUT_CODES, AUTHOR_JUDGEMENT_CODES } from './policy.js';
+export type { ValidationSeverity, ValidationPhase, ValidationIssue, ValidationReport, ValidationProfile } from '../model/types.js';
 
 function legacyIssueCode(message: string): string {
   return message.replace(/^\[UML\]\s*/i, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').toUpperCase().slice(0, 80) || 'VALIDATION_ISSUE';
@@ -61,6 +63,9 @@ export function validateLayout(layout: LayoutResult): ValidationReport {
     if (edgeSignatures.has(signature)) add('WARNING', 'DUPLICATE_EDGE_RELATIONSHIP', `Duplicate edge relationship: ${e.source} → ${e.target}`, e.id, `/edges/${index}`);
     edgeSignatures.add(signature);
     if (!nodes.some(n => n.id === e.source) || !nodes.some(n => n.id === e.target)) add('ERROR', 'BROKEN_EDGE', `Broken edge: ${e.id}`, e.id, `/edges/${index}`);
+    // A route with no bends is a straight line; no route at all is a relationship the
+    // preview would silently omit. The two must never look the same to a caller.
+    if (!e.sections || e.sections.length === 0) add('ERROR', 'EDGE_UNROUTED', `Edge was not routed: ${e.id}`, e.id, `/edges/${index}`);
     const points = (e.sections ?? []).flatMap(s => [s.startPoint, ...(s.bendPoints ?? []), s.endPoint]);
     for (let pointIndex = 0; pointIndex < points.length - 1; pointIndex++) for (const [nodeIndex, n] of nodes.entries()) if (n.id !== e.source && n.id !== e.target && segmentHitsRect(points[pointIndex], points[pointIndex + 1], n)) add('ERROR', 'EDGE_THROUGH_NODE', `Edge through node: ${e.id} → ${n.id}`, e.id, `/edges/${index}/sections/${pointIndex}`);
     if (polylineLength(points) > Math.max(layout.width, layout.height) * 0.8) add('WARNING', 'EXTREMELY_LONG_EDGE', `Extremely long edge: ${e.id}`, e.id, `/edges/${index}`);
@@ -99,6 +104,9 @@ export function validateLayout(layout: LayoutResult): ValidationReport {
   if(density>0.62) add('WARNING', 'EXCESSIVE_DENSITY', `Excessive density: ${density.toFixed(2)}`);
   if(nodes.length>4&&density<0.025) add('WARNING', 'EXCESSIVE_WHITESPACE', `Excessive whitespace: ${density.toFixed(3)}`);
   if (nodes.length > 40) add('WARNING', 'LARGE_DIAGRAM', 'Large diagram: consider splitting into subsystem diagrams');
-  const uniqueIssues = issues.filter((issue, index, all) => all.findIndex(candidate => candidate.code === issue.code && candidate.message === issue.message && candidate.path === issue.path) === index);
-  return { valid: !uniqueIssues.some(issue => issue.severity === 'ERROR'), warnings: [...new Set(uniqueIssues.map(issue => issue.message))], issues: uniqueIssues };
+  const uniqueIssues = applyProfile(
+    issues.filter((issue, index, all) => all.findIndex(candidate => candidate.code === issue.code && candidate.message === issue.message && candidate.path === issue.path) === index),
+    layout.diagram.layout?.profile,
+  );
+  return { valid: !uniqueIssues.some(issue => issue.severity === 'ERROR'), warnings: [...new Set(uniqueIssues.filter(issue => issue.severity !== 'INFO').map(issue => issue.message))], issues: uniqueIssues };
 }

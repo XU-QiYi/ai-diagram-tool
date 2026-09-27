@@ -122,11 +122,26 @@ AI 可直接交出一份带几何的对象清单；也可选择调用 `layoutDia
 | 删除容器内 `"elk.algorithm": "layered"` | `src/layout/elk.ts` `makeContainer` | `INCLUDE_CHILDREN` 下为死配置；双源码树 A/B，20 张图坐标指纹逐字节一致 |
 | 非白名单算法名抛错 | `src/layout/elk.ts` `algorithmFor` | 原先未知名会把 ELK 的 `UnsupportedConfigurationException` 原样抛出；现在错误里直接给出可用清单。`box` 等历史可用值改为显式拒绝（行为收紧，属有意） |
 | 能力可见化 | `src/mcp/tools.ts`（`layout.algorithm` enum）、`src/agent/prompts.ts`（plan 提示词一句） | 见 §8 启示：把可选杠杆写进契约，而不是让模型猜 |
-| 回归用例 | `tests/diagram.test.ts` 末尾 3 例 | radial 构图与默认不同且边全路由；容器跟随图级算法；白名单外算法抛错 |
+| 回归用例 | `tests/diagram.test.ts` | radial 构图与默认不同且边全路由；容器跟随图级算法；白名单外算法抛错 |
 
-`npm test` 125/125 通过，`npm run build` 干净，`npm run examples` 19 个样例照常产出且坐标未变。
+`npm test` 通过，`npm run build` 干净，`npm run examples` 19 个样例照常产出且坐标未变。
 
 已知限制（写进 README「布局与扩展」）：`radial` + Container 会让子节点落到框外并报 `NODE_OUTSIDE_CONTAINER`（ERROR）；`radial` 在稠密图（chen-er 28 节点）上会让同环节点重叠。因此 `radial` 只作为显式选择，不进任何默认路径。
 
-顺带记录两条与 §4 有关的事实：`examples/` 现有 21 个目录，其中 `04-flowchart`、`05-er` 是改名前的残留，与现行 `exampleNames` 无关；本项目目录当前**不在父仓库 git 跟踪范围内**（`git ls-files ai-diagram-tool` 为空），所以 §26「Git 负责历史」在这一子项目尚未真正成立，增量编辑与回退都缺前提。
+## 10. 已实施第二轮：把"评判作者"的职责撤给 AI（2026-09-26）
 
+技术负责人定调：结构与记法由 AI 主导，工具的核心职责是**不让线穿模、不打结**。据此落地 `ai-led`（默认）/ `strict` 双档，见 `src/validate/policy.ts` 与 README「谁来评判」。**几何权威没有变动**，所以 AGENTS.md §2/§3/§29 依旧成立——这一轮撤掉的是"工具替作者判断画得对不对题"，不是"谁算坐标"。
+
+- 降为 INFO（仍报数、不阻断、不再触发重排）：按图类型的记法 WARNING、UML 记法审判、密度/留白/超长边/孤立节点/重复关系/同层约束/标签压字，以及 provenance 缺失、引文对不上、置信度低、模型自报 blocking。
+- 两档都阻断：断引用、重复 ID、悬空端口、容器归属、未知形状名、**边未被路由**、文字超出、画布溢出，以及穿模/交叉/节点重叠本身。
+- `shouldRelayout` 忽略 INFO：旧回路会为一场修不了的标签压字烧满 5 次迭代，现在不会。
+
+**更正我上一轮的一个说法。** 我当时报告"三种 shape 写法全被静默吞成矩形"，实测只对了一种：`nonsenseXYZ` 和 `shape=alsoNonsense;foo=bar` 会被 `src/model/index.ts:66` 的 `ALLOWED_SHAPES` 拒绝（那个探针绕过了 `createDiagram`，所以没看到拒绝）。真正漏网的是**裸写合法名**——白名单接受 `cylinder` / `umlActor`（`bareMatch`），而渲染器只认带前缀的形式，于是合法值画成了矩形。`honorShapeFragment()` 已修，前后对照位图在 `docs/verification/renderer-shape-degradation/`（裸写 cylinder 与 `shape=cylinder` 曾渲染成两种不同图形，这是同一份模型的两个真相）。
+
+`EDGE_UNROUTED` 也已落地（ERROR，两档都阻断），并修掉 `svg.ts` 的 `if (!s) return ""`——无路由的边以前在预览里**整条消失**，而 `.drawio` 会交给 Draw.io 自动补一条，两个渲染器对同一条边给出不同真相。实测 `layeredArchitecture` 选 `stress` 触发 2 条（`edge.user-web`、`edge.service-external`），默认路径 24 张图 0 条。
+
+仍未做：① 惰性施修（把重排从"全局加间距"改成 code→旋钮，见 §8.1 第 4 条）；② SVG 侧的 `cylinder` / `umlActor` 等形状支持仍不完整（只有 chen-er 分支做了子串匹配），两个渲染器的形状表现还不一致；③ `SELF_RELATIONSHIP` 默认 ERROR 会挡住状态机自环这类合法结构，属"评判作者"的残留，待议。
+
+测试 130/130，`npm run build` 干净，`npm run examples` 正常。本轮与 §9 都在独立仓库 `dcff177` 之后提交。
+
+本轮之后仓库状态：`examples/` 已清成与 `exampleNames` 一致的 19 个目录；本目录已独立成库（基线 `dcff177`），§26「Git 负责历史」的前提从此成立。

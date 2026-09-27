@@ -11,7 +11,8 @@ const STYLE_NUMBER_RANGES = {
   minWidth: [0, 2000],
   minHeight: [0, 2000],
 } as const;
-const ALLOWED_SHAPES = new Set([
+/** Legal `style.shape` names. The renderers must honor every one of them. */
+export const ALLOWED_SHAPES = new Set([
   'ellipse',
   'rectangle',
   'rounded',

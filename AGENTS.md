@@ -441,6 +441,8 @@ long edge          → WARNING
 large whitespace   → WARNING
 ```
 
+> **严重级随 profile 变化（2026-09-26 补）**：默认档 `ai-led` 把「评判作者」的读数降为 `INFO`——按图类型的记法提示、UML 记法审判、密度/留白/超长边/孤立节点/重复关系/标签压字，以及 provenance 与置信度类；因此上表最后三行在默认档不再是 WARNING。上表前四行（`duplicate ID`、`broken reference`、`node overlap`、`edge through node`）连同 `edge crossing`、`unrouted edge`、`text overflow`、`node outside container` 在两个档位都仍是 ERROR：它们属于「工具失职」而不是品味问题。完整清单见 `src/validate/policy.ts`，写 `"layout": { "profile": "strict" }` 可回到上表语义。**本节不改变 §2/§3/§29 的几何权威：坐标仍由 ELK 计算。**
+
 ------
 
 ## 14. Automatic Re-layout
