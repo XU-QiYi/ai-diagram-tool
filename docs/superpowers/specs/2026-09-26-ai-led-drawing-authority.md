@@ -150,6 +150,8 @@ AI 可直接交出一份带几何的对象清单；也可选择调用 `layoutDia
 
 原计划是"把 `elk.layered.*` 子策略暴露成构图旋钮 + code→旋钮映射"。**前半句被实测否决**：在 elkjs 0.12.0 上，`crossingMinimization.strategy` 取 `LAYER_SWEEP` / `NO_INIT` / `GREEDY_SWITCH` / `ICPIP`、`nodePlacement.strategy` 取 `SIMPLE` / `NETWORK_SIMPLEX`，甚至填一个瞎写的值和一个不存在的选择器键，**输出逐字节相同**。已经写进 `LayoutPreferences` 的三个字段当场撤回——那正是本轮早些时候从 `elk.ts:193` 删掉的那类死配置，不能再造一遍。
 
+> **§12 更正本段**：这里"输出逐字节相同"只对 `crossingMinimization.strategy` 成立。§12 的矩阵显示 `nodePlacement.strategy` 与 `layering.layerConstraint` **确实生效**，当时的测试图对这些选项不敏感，我把"我的图没变"读成了"选项是死的"。撤回三个字段这个决定仍然正确（`crossingMinimization.strategy` 与 `layerChoiceConstraint` 确实无效果），但理由要按 §12 重述。
+
 间距旋钮的效能实测（spacing ×1 / ×1.5 / ×2.5 / ×4，各跑一次布局）：
 
 | fixture | 违规 | 加大间距 |
@@ -164,3 +166,23 @@ AI 可直接交出一份带几何的对象清单；也可选择调用 `layoutDia
 效果：那份真实模型从 5 次迭代 / 2115×581 变成 1 次 / 1839×511；交叉仍在（校验器没误报，实图确有一处线交叉），但现在**如实说明"这归构图管"**并指出杠杆。19 个 examples 画幅**零变化**，`npm test` 133/133。
 
 遗留的命名不准（既有行为，本轮未扩大改动）：`EDGE_UNROUTED` 不在重排触发集里，走的是"无触发即停"老分支，于是只跑 1 次也会报 `failed_after_max_iterations`。要修得再动一次 status 语义，等下次一并处理。
+
+## 12. 杠杆矩阵：哪些约束是真的，哪些是文档谎言（2026-09-26）
+
+为了回答"交叉到底能不能修"，把每个作者侧杠杆单独测了一遍（同一份真实 11 节点模型 + 若干可控小图）。结论比 §11 的说法更细，也**更正了 §11 的一处过度概括**：
+
+| 杠杆 | 底层选项 | 实测 |
+|---|---|---|
+| `constraints.placement` | `elk.layered.layering.layerConstraint` | ✅ **生效**：三节点链上 `c=FIRST` 把 c 从 x=516 拉回 x=40；`a=LAST` 同理。`org.eclipse.elk.` 前缀同样生效 |
+| `nodePlacement.strategy` | `elk.layered.nodePlacement.strategy` | ✅ **生效**：`SIMPLE` 与 `NETWORK_SIMPLEX` 在同一图上给出不同 y 排布 |
+| `direction` / 间距 / `aspectRatio` | `elk.direction` 等 | ✅ 生效（但消不掉目标交叉） |
+| `constraints.sameLayer` | `elk.layered.layering.layerChoiceConstraint` | ❌ **无效果**，连"x、y 本来就在同一层"这种最廉价的可满足用例都不动。validator 会用 `BROKEN_SAME_LAYER_CONSTRAINT` 报告它没成立 |
+| `constraints.before` | 送入引擎的子节点次序 | ⚠️ 接线正确（`createDiagram` 保留、`orderedIds` 生效），但该构建的交叉最小化自行决定层内排位：**改次序不改变最终布局** |
+| 顺序优先 | `elk.layered.crossingMinimization.semiInteractive` | ❌ 无效果。§11 之前我一度认为它生效——那是把"换输入顺序后布局跟着换名"误读成选项起作用；用 K2,2 对照，开与关输出一致 |
+| 交叉策略选择器 | `elk.layered.crossingMinimization.strategy` | ❌ 任意值（含瞎写值）输出相同 |
+
+**净结论：这个引擎构建不提供任何"作者侧消交叉"杠杆。** 目标交叉在 `direction` 翻转、四种顺序改法、容器增删、`mrtree`/`radial`/`stress` 切换下全部保持 1 条不变（`mrtree` 反而新增两条错误）。所以交叉只能靠**改结构**：去掉或改接跨层长边、容器分组、`placement` 定层、或拆分。`RELAYOUT_NOT_FIXABLE_BY_PREFERENCES` 的提示文案已按这张表重写——**不再推荐任何实测无效的杠杆**，并有测试钉住这一点（`doesNotMatch(/constraints\.before|sameLayer|layout\.algorithm|direction/)`）。
+
+同时撤回本轮一度加进 `LayoutPreferences` 的 `honorNodeOrder`：它在管线里没有任何可观察效果，属于"读起来像承诺的死配置"。README 的 `constraints` 三条也已改成逐条真话（placement 生效 / sameLayer 仅记录并被检测 / before 不改变布局）。
+
+回归：`npm run build` 干净，`npm test` 134/134（新增 placement 生效与 sameLayer 被检测两例，以及"建议文案不得承诺无效杠杆"的断言），19 个 examples 画幅**零变化**。

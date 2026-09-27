@@ -31,9 +31,12 @@ export interface DiagramTheme { name?: 'professional' | 'monochrome' | 'blueprin
 // purpose: they pack nodes without routing edges, so every edge would ship unrouted.
 export type LayoutAlgorithm = 'auto' | 'layered' | 'stress' | 'mrtree' | 'radial';
 export const LAYOUT_ALGORITHMS: readonly LayoutAlgorithm[] = ['auto', 'layered', 'stress', 'mrtree', 'radial'];
-// Layered sub-strategy options (nodePlacement / crossingMinimization / semiInteractive)
-// are deliberately NOT exposed: measured on elkjs 0.12.0 they produce byte-identical
-// output for every value, including unknown ones, so they would be dead configuration.
+// Composition knobs stay closed where measurement says they do nothing. On elkjs 0.12.0
+// we saw NO observable difference from: crossingMinimization.strategy (any value, even
+// unknown ones), crossingMinimization.semiInteractive (honoring node order), and
+// layering.layerChoiceConstraint - the last one is why `constraints.sameLayer` cannot be
+// promised. What does work: layering.layerConstraint (backs constraints.placement) and
+// nodePlacement.strategy, plus direction, spacing and aspectRatio.
 export interface LayoutPreferences { density?: LayoutDensity; nodeSpacing?: number; layerSpacing?: number; containerPadding?: number; targetAspectRatio?: number; wrapping?: 'AUTO' | 'OFF' | 'SINGLE_EDGE' | 'MULTI_EDGE'; svgPad?: number; rootPadding?: number; edgeLabelFontSize?: number; edgeLength?: number; relayoutTriggers?: string[]; algorithm?: LayoutAlgorithm; profile?: ValidationProfile; }
 export interface ActivationBar { id: string; participantId: string; startMessageId: string; endMessageId?: string; label?: string; }
 export interface CombinedFragment { id: string; operator: 'alt' | 'opt' | 'loop' | 'par' | 'break' | 'critical'; guard?: string; messageIds: string[]; }

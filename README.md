@@ -80,7 +80,7 @@ npm run generate -- help
 
 `layout` 会生成 `<id>.layout.json`，`render` 会生成 `.model.json`、`.drawio` 和 `.svg`。报告包含 `valid`、兼容旧脚本的 `warnings`，以及带 `severity`、`code`、`phase`、`elementId` 和可选 `path` 的结构化 `issues`。`phase` 用 `semantic`、`layout`、`render` 区分问题来源，调用方不需要再解析 warning 文本。
 
-布局结果还会记录 `status`（`passed`、`passed_with_warnings`、`failed_after_max_iterations`、`failed_composition_needed`）和 `iterationHistory`。重排**只拧对问题真有影响的旋钮**：加大间距实测能清掉节点重叠、过度密集、画布溢出和边穿节点，因此这几种情况才继续迭代；`EDGE_CROSSING`、`EDGE_UNROUTED`、`NODE_OUTSIDE_CONTAINER` 实测加大间距毫无变化（真实 11 节点模型上 x1→x4 交叉数恒为 1，画幅却从 1839×511 撑到 3243×871；`radial` 下这些参数根本不进引擎），所以回路**立刻停下**并把问题交回构图层，报 `RELAYOUT_NOT_FIXABLE_BY_PREFERENCES`，`status` 为 `failed_composition_needed`，提示改 `layout.algorithm`、`direction`、`constraints.before`/`sameLayer`、容器分组或拆分。作者显式写 `layout.relayoutTriggers` 时按作者要求跑满预算，不被这套判断拦下。语义错误同样不触发无意义重排。`render` 会在写文件前检查 Draw.io XML/SVG 的根结构、标签闭合、稳定节点/边 ID 和 SVG `viewBox`，检查失败时严格渲染命令返回非零退出码。
+布局结果还会记录 `status`（`passed`、`passed_with_warnings`、`failed_after_max_iterations`、`failed_composition_needed`）和 `iterationHistory`。重排**只拧对问题真有影响的旋钮**：加大间距实测能清掉节点重叠、过度密集、画布溢出和边穿节点，因此这几种情况才继续迭代；`EDGE_CROSSING`、`EDGE_UNROUTED`、`NODE_OUTSIDE_CONTAINER` 实测加大间距毫无变化（真实 11 节点模型上 x1→x4 交叉数恒为 1，画幅却从 1839×511 撑到 3243×871；`radial` 下这些参数根本不进引擎），所以回路**立刻停下**并把问题交回构图层，报 `RELAYOUT_NOT_FIXABLE_BY_PREFERENCES`，`status` 为 `failed_composition_needed`，提示改的是**结构**（去掉/改接跨层长边、容器分组、`constraints.placement` 定层、拆分）——注意 `direction`、节点次序和 layered 的交叉/排序类选项都实测无效，提示里不会拿它们骗你。作者显式写 `layout.relayoutTriggers` 时按作者要求跑满预算，不被这套判断拦下。语义错误同样不触发无意义重排。`render` 会在写文件前检查 Draw.io XML/SVG 的根结构、标签闭合、稳定节点/边 ID 和 SVG `viewBox`，检查失败时严格渲染命令返回非零退出码。
 
 也可以用稳定 ID 对现有模型做增量更新。补丁只修改指定节点/边，未涉及的 ID 保持不变：
 
@@ -265,7 +265,9 @@ npm run generate -- --chain "画一个 Chen ER 图。实体：学生、课程；
 ```
 
 这些参数只影响 ELK 布局，不会把坐标写回模型；`wrapping` 在 ELK 不适用时会自动安全回退为非包装布局，并保留 Layout Warning。
-- `constraints.placement` 支持 `FIRST`、`LAST`、`FIRST_SEPARATE`、`LAST_SEPARATE`；`sameLayer` 保持同层，`before` 保持稳定模型次序。最上/最下使用 TOP_TO_BOTTOM 方向配合 FIRST/LAST，最左/最右使用 LEFT_TO_RIGHT 配合 FIRST/LAST。
+- `constraints.placement` 支持 `FIRST`、`LAST`、`FIRST_SEPARATE`、`LAST_SEPARATE`，**实测生效**（底层 `layering.layerConstraint`）。最上/最下用 TOP_TO_BOTTOM 配合 FIRST/LAST，最左/最右用 LEFT_TO_RIGHT 配合 FIRST/LAST。
+- `constraints.sameLayer` 目前**只是意图记录**：它映射到 `layering.layerChoiceConstraint`，而该选项在 elkjs 0.12.0 上未产生任何可观察差异（含最廉价的可满足用例）。工具会检测并用 `BROKEN_SAME_LAYER_CONSTRAINT` 报告它没成立，但**不要依赖它改变布局**。
+- `constraints.before` 决定送入引擎的子节点次序（也用于稳定 ID 与拆分顺序），但该构建的交叉最小化会自行决定层内排位；实测改次序**不改变最终布局**。想消交叉请改结构：去掉或改接跨层长边、容器分组、`placement` 定层、或拆分。
 
 示例：
 

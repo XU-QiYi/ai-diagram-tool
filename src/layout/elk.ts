@@ -490,7 +490,11 @@ export async function layoutDiagram(
       stopNote = {
         severity: 'WARNING',
         code: 'RELAYOUT_NOT_FIXABLE_BY_PREFERENCES',
-        message: `${blocking.join(', ')} survived layout and no spacing change affects it. Fix it in the composition instead: layout.algorithm, direction, constraints.before / sameLayer, container grouping, or split the diagram.`,
+        message:
+          `${blocking.join(', ')} survived layout and no preference the tool can turn affects it ` +
+          '(spacing, direction and the layered crossing/order options were measured to leave it unchanged). ' +
+          'Change the structure instead: remove or reroute a cross-layer long edge, group nodes into containers, ' +
+          'pin layers with constraints.placement, or split the diagram.',
         phase: 'layout',
       };
       break;

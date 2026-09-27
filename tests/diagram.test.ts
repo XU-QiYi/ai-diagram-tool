@@ -427,7 +427,10 @@ test('the layout loop stops early when no preference it can turn affects the fin
   assert.equal(r.status, 'failed_composition_needed');
   const note = r.issues?.find(i => i.code === 'RELAYOUT_NOT_FIXABLE_BY_PREFERENCES');
   assert.ok(note, 'the author must be told the fix belongs to the composition');
-  assert.match(note!.message, /layout\.algorithm|constraints|split/);
+  const advice = note!.message.slice(note!.message.indexOf('Change the structure instead:'));
+  assert.match(advice, /cross-layer long edge|containers|constraints\.placement|split/);
+  assert.doesNotMatch(advice, /constraints\.before|sameLayer|layout\.algorithm|direction/, 'the advice clause must not promise levers measured inert on this engine');
+  assert.match(note!.message, /measured to leave it unchanged/, 'it must say what was ruled out');
   assert.ok(r.width < 1700, `canvas must not be inflated by a useless ladder (got ${Math.round(r.width)})`);
 });
 
@@ -441,8 +444,26 @@ test('an explicit relayoutTriggers list keeps the full iteration budget even whe
   assert.ok(!r.issues?.some(i => i.code === 'RELAYOUT_NOT_FIXABLE_BY_PREFERENCES'));
 });
 
-test('spacing violations still get the ladder and converge clean', async () => {
-  const r = await layoutDiagram(chenErDiagram());
+test('constraints.placement pins a layer; sameLayer is only advisory and reported when ignored', async () => {
+  const chain = (constraints?: any) => createDiagram({
+    id: 'constraint-probe', title: 'Constraint probe', type: 'system-architecture', direction: 'LEFT_TO_RIGHT',
+    constraints,
+    nodes: [{ id: 'node.a', label: 'A' }, { id: 'node.b', label: 'B' }, { id: 'node.c', label: 'C' }],
+    edges: [{ id: 'e1', source: 'node.a', target: 'node.b' }, { id: 'e2', source: 'node.b', target: 'node.c' }],
+  });
+  const plain = await layoutDiagram(chain(), 1);
+  const pinned = await layoutDiagram(chain({ placement: { 'node.c': 'FIRST' } }), 1);
+  const plainC = plain.nodes.find(n => n.id === 'node.c')!;
+  const pinnedC = pinned.nodes.find(n => n.id === 'node.c')!;
+  assert.ok(pinnedC.x < plainC.x, `placement=FIRST must pull node.c back a layer (${plainC.x} -> ${pinnedC.x})`);
+
+  // layerChoiceConstraint does nothing on elkjs 0.12.0, so the tool must say so instead
+  // of pretending the group held.
+  const grouped = await layoutDiagram(chain({ sameLayer: [['node.a', 'node.b']] }), 1);
+  assert.ok(grouped.issues?.some(i => i.code === 'BROKEN_SAME_LAYER_CONSTRAINT'), 'an unmet sameLayer group must be reported, not silently accepted');
+});
+
+test('spacing violations still get the ladder and converge clean', async () => {  const r = await layoutDiagram(chenErDiagram());
   assert.ok((r.iterationHistory?.length ?? 0) > 1, 'chen-er overlap must keep iterating');
   assert.equal(r.status, 'passed');
   assert.ok(!r.issues?.some(i => i.severity === 'ERROR'));
