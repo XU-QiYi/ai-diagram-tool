@@ -145,3 +145,22 @@ AI 可直接交出一份带几何的对象清单；也可选择调用 `layoutDia
 测试 130/130，`npm run build` 干净，`npm run examples` 正常。本轮与 §9 都在独立仓库 `dcff177` 之后提交。
 
 本轮之后仓库状态：`examples/` 已清成与 `exampleNames` 一致的 19 个目录；本目录已独立成库（基线 `dcff177`），§26「Git 负责历史」的前提从此成立。
+
+## 11. 已实施第三轮：重排回路只拧真有影响的旋钮（2026-09-26）
+
+原计划是"把 `elk.layered.*` 子策略暴露成构图旋钮 + code→旋钮映射"。**前半句被实测否决**：在 elkjs 0.12.0 上，`crossingMinimization.strategy` 取 `LAYER_SWEEP` / `NO_INIT` / `GREEDY_SWITCH` / `ICPIP`、`nodePlacement.strategy` 取 `SIMPLE` / `NETWORK_SIMPLEX`，甚至填一个瞎写的值和一个不存在的选择器键，**输出逐字节相同**。已经写进 `LayoutPreferences` 的三个字段当场撤回——那正是本轮早些时候从 `elk.ts:193` 删掉的那类死配置，不能再造一遍。
+
+间距旋钮的效能实测（spacing ×1 / ×1.5 / ×2.5 / ×4，各跑一次布局）：
+
+| fixture | 违规 | 加大间距 |
+|---|---|---|
+| 真实 11 节点模型（layered） | `EDGE_CROSSING` | ❌ 恒为 1 条，画幅 1839×511 → 3243×871 |
+| architecture + `radial` | `NODE_OVERLAP` / `EDGE_UNROUTED` / `NODE_OUTSIDE_CONTAINER` / `CANVAS_OVERFLOW` | ❌ 画幅完全不变（参数不进该算法） |
+| chen-er（`stress`） | `EDGE_THROUGH_NODE` | ⚠️ 有效但**非单调**：×1 有错 → ×1.5 干净 → ×2.5 又错 → ×4 干净 |
+| architecture + `stress` | `EDGE_UNROUTED` | ❌ 恒为 2 条 |
+
+据此落地（`src/layout/elk.ts`）：`SPACING_FIXABLE` = 节点重叠 / 过度密集 / 画布溢出 / 边穿节点；`SPACING_INERT_ALGORITHMS` = radial、mrtree；其余情况**第一次布局后就停**，报 `RELAYOUT_NOT_FIXABLE_BY_PREFERENCES`（WARNING）并给出可动的构图杠杆，`status` 新增 `failed_composition_needed`。作者显式写 `layout.relayoutTriggers` 时按作者要求跑满预算，不被这套判断拦下。同时改为**返回得分最高的那次布局**（错误数优先、其次更小画幅），因为 stress 非单调；并修正 `iterations` 语义为"实际尝试次数"（返回较早那次时不再谎报轮数）。顺带纠正 `validate/visual.ts` 里 "monotonic … strongest effect on stress-style algorithms" 的断言——实测 stress 恰恰不单调。
+
+效果：那份真实模型从 5 次迭代 / 2115×581 变成 1 次 / 1839×511；交叉仍在（校验器没误报，实图确有一处线交叉），但现在**如实说明"这归构图管"**并指出杠杆。19 个 examples 画幅**零变化**，`npm test` 133/133。
+
+遗留的命名不准（既有行为，本轮未扩大改动）：`EDGE_UNROUTED` 不在重排触发集里，走的是"无触发即停"老分支，于是只跑 1 次也会报 `failed_after_max_iterations`。要修得再动一次 status 语义，等下次一并处理。

@@ -31,6 +31,9 @@ export interface DiagramTheme { name?: 'professional' | 'monochrome' | 'blueprin
 // purpose: they pack nodes without routing edges, so every edge would ship unrouted.
 export type LayoutAlgorithm = 'auto' | 'layered' | 'stress' | 'mrtree' | 'radial';
 export const LAYOUT_ALGORITHMS: readonly LayoutAlgorithm[] = ['auto', 'layered', 'stress', 'mrtree', 'radial'];
+// Layered sub-strategy options (nodePlacement / crossingMinimization / semiInteractive)
+// are deliberately NOT exposed: measured on elkjs 0.12.0 they produce byte-identical
+// output for every value, including unknown ones, so they would be dead configuration.
 export interface LayoutPreferences { density?: LayoutDensity; nodeSpacing?: number; layerSpacing?: number; containerPadding?: number; targetAspectRatio?: number; wrapping?: 'AUTO' | 'OFF' | 'SINGLE_EDGE' | 'MULTI_EDGE'; svgPad?: number; rootPadding?: number; edgeLabelFontSize?: number; edgeLength?: number; relayoutTriggers?: string[]; algorithm?: LayoutAlgorithm; profile?: ValidationProfile; }
 export interface ActivationBar { id: string; participantId: string; startMessageId: string; endMessageId?: string; label?: string; }
 export interface CombinedFragment { id: string; operator: 'alt' | 'opt' | 'loop' | 'par' | 'break' | 'critical'; guard?: string; messageIds: string[]; }
@@ -64,7 +67,12 @@ export interface ValidationReport {
   issues: ValidationIssue[];
 }
 
-export type LayoutStatus = 'passed' | 'passed_with_warnings' | 'failed_after_max_iterations';
+/**
+ * `failed_composition_needed` means the layout loop stopped early because no preference
+ * it can turn affects the remaining finding - the fix belongs to the composition (the
+ * author's side), not to another spacing bump.
+ */
+export type LayoutStatus = 'passed' | 'passed_with_warnings' | 'failed_after_max_iterations' | 'failed_composition_needed';
 
 export interface LayoutIteration {
   iteration: number;

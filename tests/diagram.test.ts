@@ -418,6 +418,36 @@ test('a legal bare shape name renders as that shape, not as a rectangle', async 
   assert.equal(honorShapeFragment(undefined), undefined);
 });
 
+test('the layout loop stops early when no preference it can turn affects the finding', async () => {
+  const base = layeredArchitecture();
+  const radial = { ...base, layout: { ...(base.layout ?? {}), algorithm: 'radial' as const } };
+  const r = await layoutDiagram(radial);
+  assert.equal(r.iterations, 1, 'spacing is inert under radial: five attempts would only inflate the canvas');
+  assert.equal(r.iterations, r.iterationHistory?.length, 'iterations must report the attempts actually made');
+  assert.equal(r.status, 'failed_composition_needed');
+  const note = r.issues?.find(i => i.code === 'RELAYOUT_NOT_FIXABLE_BY_PREFERENCES');
+  assert.ok(note, 'the author must be told the fix belongs to the composition');
+  assert.match(note!.message, /layout\.algorithm|constraints|split/);
+  assert.ok(r.width < 1700, `canvas must not be inflated by a useless ladder (got ${Math.round(r.width)})`);
+});
+
+test('an explicit relayoutTriggers list keeps the full iteration budget even when the default ladder is out of knobs', async () => {
+  const base = layeredArchitecture();
+  const stress = { ...base, layout: { ...(base.layout ?? {}), algorithm: 'stress' as const, relayoutTriggers: ['EDGE_UNROUTED'] } };
+  const r = await layoutDiagram(stress);
+  assert.equal(r.iterations, 5, 'the author asked for another pass; honour it instead of stopping at one');
+  assert.equal(r.iterations, r.iterationHistory?.length);
+  assert.equal(r.status, 'failed_after_max_iterations');
+  assert.ok(!r.issues?.some(i => i.code === 'RELAYOUT_NOT_FIXABLE_BY_PREFERENCES'));
+});
+
+test('spacing violations still get the ladder and converge clean', async () => {
+  const r = await layoutDiagram(chenErDiagram());
+  assert.ok((r.iterationHistory?.length ?? 0) > 1, 'chen-er overlap must keep iterating');
+  assert.equal(r.status, 'passed');
+  assert.ok(!r.issues?.some(i => i.severity === 'ERROR'));
+});
+
 test('an unrouted edge is reported and still drawn, never silently dropped from the preview', async () => {
   const base = layeredArchitecture();
   const stress = await layoutDiagram({ ...base, layout: { ...(base.layout ?? {}), algorithm: 'stress' } }, 2);

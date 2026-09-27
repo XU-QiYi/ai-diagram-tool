@@ -121,7 +121,7 @@ export const VISUAL_HINT_RULES: VisualHintRule[] = [
     code: 'VISUAL_EDGE_ROUTE_LONG',
     patterns: [/detour|long back[- ]edge|very long edge|wraps? around|绕远|长边过/],
     effects: [{ field: 'edgeLength', direction: 'up' }],
-    note: 'monotonic: edges routed on long detours -> edgeLength only increases (strongest effect on stress-style algorithms)',
+    note: 'edgeLength only increases per round, but the effect is NOT monotonic: measured on a Chen ER stress layout, spacing x1 errored, x1.5 was clean, x2.5 errored again, x4 was clean. Under `radial` these options do not reach the engine at all, so repeated bumps change nothing.',
   },
   {
     code: 'VISUAL_SPACING_LOOSE',

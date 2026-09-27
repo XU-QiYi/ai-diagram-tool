@@ -398,15 +398,43 @@ function iterationStatus(issues: ValidationIssue[]): LayoutIteration['status'] {
   return 'passed';
 }
 
+/**
+ * Violation classes that raising nodeSpacing / layerSpacing / edgeLength demonstrably
+ * clears on elkjs 0.12.0. Everything else keeps its finding after five bumps, so the
+ * loop must stop instead of inflating the canvas: measured on a real 11-node model,
+ * EDGE_CROSSING stayed at exactly 1 from x1 to x4 spacing while the canvas grew
+ * 1839x511 -> 3243x871, and under `radial` every multiplier produced a byte-identical
+ * canvas because the layered spacing options never reach that algorithm.
+ */
+const SPACING_FIXABLE: ReadonlySet<string> = new Set([
+  'NODE_OVERLAP',
+  'EXCESSIVE_DENSITY',
+  'CANVAS_OVERFLOW',
+  'EDGE_THROUGH_NODE',
+]);
+
+/** Algorithms where the spacing knobs were measured to have no effect at all. */
+const SPACING_INERT_ALGORITHMS: ReadonlySet<string> = new Set(['radial', 'mrtree']);
+
+/** Errors first, then canvas size: a smaller equally-clean layout is the better one. */
+function iterationScore(result: LayoutResult): number {
+  const errors = (result.issues ?? []).filter((issue) => issue.severity === 'ERROR').length;
+  return errors * 1e10 + result.width * result.height;
+}
+
 export async function layoutDiagram(
   diagram: Diagram,
   maxIterations = 5,
 ): Promise<LayoutResult> {
   const base = layoutProfile(diagram);
   const iterationLimit = Number.isFinite(maxIterations) ? Math.max(1, Math.floor(maxIterations)) : 5;
+  const algorithm = algorithmFor(diagram);
   let profile: LayoutProfile = { ...base };
   let fallbackWarning: string | undefined;
   let last: LayoutResult | undefined;
+  let best: LayoutResult | undefined;
+  let bestScore = Number.POSITIVE_INFINITY;
+  let stopNote: ValidationIssue | undefined;
   const iterationHistory: LayoutIteration[] = [];
   for (let iteration = 1; iteration <= iterationLimit; iteration++) {
     let result: any;
@@ -445,9 +473,27 @@ export async function layoutDiagram(
       status: currentStatus,
     });
     last.iterationHistory = iterationHistory;
+    const score = iterationScore(last);
+    if (!best || score < bestScore) {
+      best = last;
+      bestScore = score;
+    }
     if (!shouldRelayout(issues, diagram)) {
       last.status = currentStatus === 'failed' ? 'failed_after_max_iterations' : currentStatus === 'passed_with_warnings' ? 'passed_with_warnings' : 'passed';
       return last;
+    }
+    const blocking = [...new Set(issues.filter((issue) => issue.severity === 'ERROR' && issue.phase === 'layout').map((issue) => issue.code))];
+    const knobMightHelp = !SPACING_INERT_ALGORITHMS.has(algorithm) && blocking.some((code) => SPACING_FIXABLE.has(code));
+    // An explicit relayoutTriggers list is the author asking for another pass; honour it
+    // even when the default ladder has nothing left to turn.
+    if (!knobMightHelp && !(diagram.layout?.relayoutTriggers ?? []).length) {
+      stopNote = {
+        severity: 'WARNING',
+        code: 'RELAYOUT_NOT_FIXABLE_BY_PREFERENCES',
+        message: `${blocking.join(', ')} survived layout and no spacing change affects it. Fix it in the composition instead: layout.algorithm, direction, constraints.before / sameLayer, container grouping, or split the diagram.`,
+        phase: 'layout',
+      };
+      break;
     }
     profile = {
       ...profile,
@@ -456,9 +502,17 @@ export async function layoutDiagram(
       edgeLength: profile.edgeLength + Math.max(6, Math.round(profile.edgeLength * 0.12)),
     };
   }
-  if (last) {
-    last.iterationHistory = iterationHistory;
-    last.status = 'failed_after_max_iterations';
+  const chosen = best ?? last;
+  if (chosen) {
+    if (stopNote) {
+      chosen.issues = [...(chosen.issues ?? []), stopNote];
+      chosen.warnings = [...new Set(chosen.issues.map((issue) => issue.message))];
+    }
+    chosen.iterationHistory = iterationHistory;
+    // The returned layout may be an earlier, better-scoring attempt, so report the number
+    // of attempts actually made rather than the attempt the layout came from.
+    chosen.iterations = iterationHistory.length;
+    chosen.status = stopNote ? 'failed_composition_needed' : 'failed_after_max_iterations';
   }
-  return last!;
+  return chosen!;
 }

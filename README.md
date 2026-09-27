@@ -80,7 +80,7 @@ npm run generate -- help
 
 `layout` 会生成 `<id>.layout.json`，`render` 会生成 `.model.json`、`.drawio` 和 `.svg`。报告包含 `valid`、兼容旧脚本的 `warnings`，以及带 `severity`、`code`、`phase`、`elementId` 和可选 `path` 的结构化 `issues`。`phase` 用 `semantic`、`layout`、`render` 区分问题来源，调用方不需要再解析 warning 文本。
 
-布局结果还会记录 `status`（`passed`、`passed_with_warnings`、`failed_after_max_iterations`）和 `iterationHistory`。只有布局阶段的可修复 issue（如节点重叠、边交叉、边穿节点、画布溢出、标签重叠和过度密集）才会触发下一轮 ELK；语义错误不会触发无意义重排。`render` 会在写文件前检查 Draw.io XML/SVG 的根结构、标签闭合、稳定节点/边 ID 和 SVG `viewBox`，检查失败时严格渲染命令返回非零退出码。
+布局结果还会记录 `status`（`passed`、`passed_with_warnings`、`failed_after_max_iterations`、`failed_composition_needed`）和 `iterationHistory`。重排**只拧对问题真有影响的旋钮**：加大间距实测能清掉节点重叠、过度密集、画布溢出和边穿节点，因此这几种情况才继续迭代；`EDGE_CROSSING`、`EDGE_UNROUTED`、`NODE_OUTSIDE_CONTAINER` 实测加大间距毫无变化（真实 11 节点模型上 x1→x4 交叉数恒为 1，画幅却从 1839×511 撑到 3243×871；`radial` 下这些参数根本不进引擎），所以回路**立刻停下**并把问题交回构图层，报 `RELAYOUT_NOT_FIXABLE_BY_PREFERENCES`，`status` 为 `failed_composition_needed`，提示改 `layout.algorithm`、`direction`、`constraints.before`/`sameLayer`、容器分组或拆分。作者显式写 `layout.relayoutTriggers` 时按作者要求跑满预算，不被这套判断拦下。语义错误同样不触发无意义重排。`render` 会在写文件前检查 Draw.io XML/SVG 的根结构、标签闭合、稳定节点/边 ID 和 SVG `viewBox`，检查失败时严格渲染命令返回非零退出码。
 
 也可以用稳定 ID 对现有模型做增量更新。补丁只修改指定节点/边，未涉及的 ID 保持不变：
 
@@ -310,7 +310,7 @@ npm run generate -- --chain "画一个 Chen ER 图。实体：学生、课程；
 
 ## 布局与扩展
 
-`src/layout/elk.ts` 集中配置 ELK layered、方向、ORTHOGONAL 路由、节点/层间距和最多 5 次自动迭代。`src/validate/index.ts` 检查重叠、断边、孤立节点、边穿节点、画布溢出、重复 ID 与大图告警。新增图类型时：扩展 `DiagramType`，在 `src/diagram-types/` 添加构造器/语义规则，并在渲染器中补充必要样式。
+`src/layout/elk.ts` 集中配置 ELK layered、方向、ORTHOGONAL 路由、节点/层间距，以及最多 5 次自动迭代（旋钮对某类问题无效时会提前停止并交回构图层，见「校验、布局和渲染命令」）。`src/validate/index.ts` 检查重叠、断边、孤立节点、边穿节点、画布溢出、重复 ID 与大图告警。新增图类型时：扩展 `DiagramType`，在 `src/diagram-types/` 添加构造器/语义规则，并在渲染器中补充必要样式。
 
 布局算法是**按图选择**的构图杠杆，写在模型顶层 `layout.algorithm`，取值 `auto | layered | stress | mrtree | radial`（`LAYOUT_ALGORITHMS` 是唯一事实来源，CLI 与 MCP 共用）。留空 `auto` 即沿用图类型默认（mindmap→mrtree，network/chen-er→stress，其余→layered）；`mrtree` 适合树状分支，`stress` 适合力导向网络，`radial` 把 hub 放到中心做环形阅读。已知边界：`radial` 与 Container 同时使用会让子节点落到框外（校验报 `NODE_OUTSIDE_CONTAINER`），在稠密图上还会让同环节点重叠，因此只作为显式选择、不进入任何默认路径。`box` / `rectpacking` 刻意不暴露——实测它们不为边生成任何路由段，交付出来是一堆没有连线路径的框。不在白名单内的算法名会直接抛错，不会被静默降级成 layered。
 
