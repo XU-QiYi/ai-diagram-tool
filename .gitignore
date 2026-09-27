@@ -1,5 +1,6 @@
 node_modules/
 dist/
 .loop-tmp/
+.playwright-cli/
 output/
 *.log

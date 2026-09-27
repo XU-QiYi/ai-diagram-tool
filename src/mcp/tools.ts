@@ -69,18 +69,19 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: 'diagram_generate',
     description:
-      'Generate a diagram with the built-in rule parser only ("offline": true). This tool never calls a model: for natural-language, ' +
-      'document or image input use diagram_plan_request, answer the task with your own model, then diagram_plan_submit. ' +
+      'Generate a diagram with the arrow-chain parser only ("chain": true). This tool never calls a model, and the parser reads only ' +
+      '"类型：A -> B -> C" chains — a free-form sentence is rejected with DIAGRAM_REQUEST_UNPARSED. For natural-language, document or ' +
+      'image input use diagram_plan_request, answer the task with your own model, then diagram_plan_submit. ' +
       `Writes <id>.model.json, .drawio, .svg. ${GEOMETRY_NOTE}`,
     inputSchema: {
       type: 'object',
       additionalProperties: false,
       properties: {
-        text: { type: 'string', description: 'Natural-language request for the rule parser.' },
-        offline: { type: 'boolean', description: 'Required and must be true: use the rule parser instead of any model.' },
+        text: { type: 'string', description: 'Arrow chain for the parser, e.g. 系统架构：前端 -> API -> 数据库.' },
+        chain: { type: 'boolean', description: 'Required and must be true: use the arrow-chain parser instead of any model.' },
         out: { type: 'string', description: 'Output directory (relative paths resolve against the server working directory).' },
       },
-      required: ['offline', 'text'],
+      required: ['chain', 'text'],
     },
   },
   {
@@ -414,16 +415,16 @@ export async function callTool(name: string, rawArgs: unknown, options: ToolCall
       });
     }
     case 'diagram_generate': {
-      if (args.offline !== true) {
+      if (args.chain !== true) {
         throw new ToolError(
           'AGENT_PLAN_REQUIRED',
-          'diagram_generate only runs the rule parser; nothing in this project calls a model or holds an API key.',
-          'Use diagram_plan_request to get a plan task, answer it with your own model, then diagram_plan_submit. Set "offline": true to use the rule parser.',
+          'diagram_generate only runs the arrow-chain parser; nothing in this project calls a model or holds an API key.',
+          'Use diagram_plan_request to get a plan task, answer it with your own model, then diagram_plan_submit. Set "chain": true to use the arrow-chain parser.',
         );
       }
-      if (args.document || args.image || args.template) throw new Error('offline mode accepts "text" only; drop the document/image/template argument');
+      if (args.document || args.image || args.template) throw new Error('chain mode accepts "text" only; drop the document/image/template argument');
       const diagram = createDiagramFromRequest(requireString(args, 'text'));
-      return json({ mode: 'offline', written: await renderAndWrite(diagram, out) });
+      return json({ mode: 'chain', written: await renderAndWrite(diagram, out) });
     }
     case 'diagram_plan_request': {
       const input = await buildSourceInput(args, root);

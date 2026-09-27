@@ -215,10 +215,10 @@ test('an answer smuggling coordinates is refused by the same geometry gate', asy
 });
 
 test('a model-free path is available without any submission', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'diagram-agent-offline-'));
-  assert.equal(await runCli(['generate', '--offline', '--text', '用户 → 服务 → 数据库', '--out', dir]), 0);
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'diagram-agent-chain-'));
+  assert.equal(await runCli(['generate', '--chain', '--text', '用户 → 服务 → 数据库', '--out', dir]), 0);
   const files = await fs.readdir(dir);
   assert.ok(files.includes('user-service-flowchart.drawio') || files.some(file => file.endsWith('.drawio')), `drawio missing in ${files.join(', ')}`);
-  // Asking for a diagram with no plan source and no --offline must be refused, not guessed.
+  // Asking for a diagram with no plan source and no --chain must be refused, not guessed.
   assert.equal(await runCli(['generate', '--text', request, '--out', path.join(dir, 'none')]), 1);
 });

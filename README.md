@@ -1,6 +1,18 @@
 # AI → Diagram Model → ELK.js → Draw.io
 
-AI 负责把自然语言、文档或图片转换成 Diagram Model；ELK.js 负责布局和路由，验证器检查语义与几何质量，最后输出可编辑的 diagrams.net/Draw.io XML 和 SVG 预览。需要 Node.js 22.13+。
+AI 负责把自然语言、文档或图片转换成 Diagram Model；ELK.js 负责布局和路由，验证器检查几何质量与渲染诚实性，最后输出可编辑的 diagrams.net/Draw.io XML 和 SVG 预览。需要 Node.js 22.13+。
+
+## 先说清楚：谁负责"理解"
+
+**这里的「AI」不是本工具。** 项目刻意不调用任何模型、不存 API key——理解由宿主 agent（或它调用的 reasoner）承担，工具负责把结构画成诚实、可编辑的图。
+
+| 你想要的 | 走哪条路 | 需要模型吗 |
+|---|---|---|
+| 说一句自然语言出图、丢一张图让它看懂并复述 | 宿主 agent 产出 Diagram Model：`--emit-plan` → 你的模型作答 → `--plan`（MCP：`diagram_plan_request` / `diagram_plan_submit`） | 需要，由调用方提供 |
+| 固定格式快速出图 | `--chain`：只吃 `类型：A -> B -> C` 箭头链与 Chen-ER 三段式；普通中文句子会以 `DIAGRAM_REQUEST_UNPARSED` 拒绝 | 不需要 |
+| 已有模型重画、增量改、批量样例 | `--input <model.json>`、`--input --patch <patch.json>`、`--preset`、`--examples` | 不需要 |
+
+**SVG 只是近似预览。** 它实现的形状少于 `.drawio`（`cylinder`、`umlActor`、`component`、`cube`、`note` 在 SVG 里可能画成矩形），可编辑的 `.drawio` 才是真相；要看准就出走本机 Draw.io 的位图（`--emit-review`）。
 
 ## 安装与运行
 
@@ -27,18 +39,18 @@ npm run generate:toolshare
 
 流程：`--emit-plan` 先取一份规划任务（源材料 + 契约 + 答案格式），此步不产出图；用任意模型回答后存成 `answer.json`；再 `--plan answer.json` 回灌。
 
-提交的答案必须逐个通过：证据 `quote` 在源材料中逐字存在、整体与元素置信度不低于 0.7、稳定 ID 未被改写、UML 关系语义合法、且不含任何 `x`/`y`/`width`/`height`/边路由（`MODEL_GEOMETRY_FORBIDDEN`）。可选 `--audit audit.json` 提交对该答案的独立复审；不提供时质量报告会记 `SEMANTIC_AUDIT_SKIPPED` 警告并把 `auditConfidence` 留为 0，不会当成已通过审查。未通过闸门时不落盘。
+默认档 `ai-led` 下，提交的答案只被"画得诚实"这一类闸门拦下：图类型与字段合法、稳定 ID 未被改写、不含任何 `x`/`y`/`width`/`height`/边路由（`MODEL_GEOMETRY_FORBIDDEN`）、关系类型是渲染器支持的、引用不悬空。证据 `quote` 是否逐字存在、置信度是否到 0.7、记法是否合该图类型的规范，都只作为 INFO 报告，不阻断（见「谁来评判」）。需要旧行为时，在模型里写 `"layout": { "profile": "strict" }`，闸门会重新要求逐字证据与不低于 0.7 的置信度。可选 `--audit audit.json` 提交对该答案的独立复审；不提供时质量报告会记 `SEMANTIC_AUDIT_SKIPPED` 警告并把 `auditConfidence` 留为 0，不会当成已通过审查。未通过闸门时不落盘。
 
 文档支持 `.md`、`.txt`、`.pdf`、`.docx`；图片支持 PNG、JPEG、WebP（以 data URL 放进任务里，交给有视觉能力的调用方）。扫描版 PDF 没有可提取正文时会拒绝，请提供图片或可搜索 PDF。输入上限为 10 MB，提取文本上限为 60,000 字符。
 
 产物包含 `.model.json`、`.drawio`、`.svg`、`.quality.json`。质量报告记录来源、逐字核验通过的证据条数、布局迭代次数和剩余问题；不代表调用方已证明文档的所有要求都被覆盖。
 
-完全不需要模型的入口照常可用：`--offline`（有限规则解析）、`--preset layered|microservices|event-driven|cloud`、`--input <model.json>`（按当前布局参数重绘）、`--input <model.json> --patch <patch.json>`（稳定 ID 增量修改）、`--examples`。
+完全不需要模型的入口照常可用：`--chain`（箭头链与 Chen-ER 三段式解析）、`--preset layered|microservices|event-driven|cloud`、`--input <model.json>`（按当前布局参数重绘）、`--input <model.json> --patch <patch.json>`（稳定 ID 增量修改）、`--examples`。
 
-有限的离线结构化解析：
+箭头链解析（`--chain`，只认固定格式，不是自然语言）：
 
 ```bash
-npm run generate -- --offline "用户 → 服务 → 数据库"
+npm run generate -- --chain "用户 → 服务 → 数据库"
 ```
 
 架构预设和已有模型重绘：
@@ -131,12 +143,12 @@ npm run generate -- --plan output/answer.json --review-findings output/findings.
 | `diagram_plan_submit` | 回灌答案：逐个过证据、稳定 ID、UML 语义、坐标拒收，然后 ELK 布局落盘 |
 | `diagram_review_request` | 渲染位图并返回可引用 ID 白名单 + 几何事实 + 答案契约 |
 | `diagram_review_submit` | 回灌审查结论：只映射为 `LayoutPreferences` 并重跑 ELK，坐标一律丢弃 |
-| `diagram_generate` | 仅规则解析（必须 `offline: true`），不调用任何模型 |
+| `diagram_generate` | 仅箭头链解析（必须 `chain: true`），不调用任何模型 |
 | `diagram_validate` | 布局 + 语义/几何校验，只返回报告，不写文件 |
 | `diagram_render` | 布局 + 校验 + 写 `.model.json` / `.drawio` / `.svg` |
 | `diagram_patch` | 按稳定 ID 增量修改已有模型后重跑全流程 |
 
-调用方**不能**传入坐标：任何带 `x`、`y`、`sections`、`bendPoints`、`waypoints`、`geometry`、`mxCell`、`mxGeometry` 的 `model` 或 `patch` 会被 `INPUT_GEOMETRY_FORBIDDEN` 拒收，错误信息会说明坐标只能由 ELK 计算。路径参数被限制在服务根目录内（`DIAGRAM_MCP_ROOT`，默认启动时工作目录），越界返回 `PATH_OUTSIDE_WORKSPACE`。未配置 AI 时 `diagram_generate` 返回 `AI_NOT_CONFIGURED` 并提示改用 `offline`。
+调用方**不能**传入坐标：任何带 `x`、`y`、`sections`、`bendPoints`、`waypoints`、`geometry`、`mxCell`、`mxGeometry` 的 `model` 或 `patch` 会被 `INPUT_GEOMETRY_FORBIDDEN` 拒收，错误信息会说明坐标只能由 ELK 计算。路径参数被限制在服务根目录内（`DIAGRAM_MCP_ROOT`，默认启动时工作目录），越界返回 `PATH_OUTSIDE_WORKSPACE`。想要自然语言/文档/图片而又不提交计划答案时，`diagram_generate` 返回 `AGENT_PLAN_REQUIRED`，提示改走 `diagram_plan_request` → 自己的模型 → `diagram_plan_submit`，或显式设 `chain: true`。
 
 在 MiMo Desktop 中注册（Settings → MCP，改完需重启并新建会话）。先 `npm run build`，用编译产物最稳，不依赖加载器解析：
 
@@ -193,15 +205,15 @@ npm run generate -- "画一个 Deployment Diagram：Client、Application Server�
 
 ### Chen ER 自然语言格式
 
-`chen-er` 的离线模式提供可预测的半结构化中文解析。建议使用“实体 / 某实体属性 / 联系”三个部分：
+`chen-er` 的 `--chain` 模式提供可预测的半结构化中文解析。建议使用“实体 / 某实体属性 / 联系”三个部分：
 
 ```bash
-npm run generate -- --offline "画一个 Chen ER 图。实体：学生、课程；学生属性：学号（主键）、姓名；课程属性：课程号（主键）、课程名；联系：学生通过‘选修’联系课程，基数 M:N"
+npm run generate -- --chain "画一个 Chen ER 图。实体：学生、课程；学生属性：学号（主键）、姓名；课程属性：课程号（主键）、课程名；联系：学生通过‘选修’联系课程，基数 M:N"
 ```
 
 解析器会自动建立矩形实体、椭圆属性、菱形联系、无箭头关联线和 `1/M/N` 基数，并生成稳定 ID。属性可用 `（主键）`、`（多值）`、`（派生）` 标注；主键在 Draw.io/SVG 中以下划线显示，多值属性使用双椭圆，派生属性使用虚线椭圆。如果联系未写基数，工具保留联系但输出 `cardinality is unspecified` 警告，不会自行猜测。
 
-离线模式下，复杂业务建议把每组定义用换行或中文分号隔开。无法可靠理解的自由文本会直接拒绝生成并返回 `DIAGRAM_REQUEST_UNPARSED`，避免把无关的内置示例误当成业务语义。仅指定图类型而未提供节点、关系或该类型专用字段时也会拒绝生成；内置图只通过 `npm run examples` 或明确的 `--preset` 选项生成。需要可控结果时建议直接编辑/生成 `.model.json`。
+`--chain` 模式下，复杂业务建议把每组定义用换行或中文分号隔开。无法可靠理解的自由文本会直接拒绝生成并返回 `DIAGRAM_REQUEST_UNPARSED`，避免把无关的内置示例误当成业务语义。仅指定图类型而未提供节点、关系或该类型专用字段时也会拒绝生成；内置图只通过 `npm run examples` 或明确的 `--preset` 选项生成。需要可控结果时建议直接编辑/生成 `.model.json`。
 
 复杂图或后续修改建议直接编辑/生成 `.model.json`：模型只描述节点、关系、容器和语义，不写最终坐标；随后统一经过 `layoutDiagram`、`validateLayout` 和两个渲染器输出。使用 `--input` 可以直接重绘修改后的模型。
 

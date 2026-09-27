@@ -21,7 +21,7 @@ const exampleNames = ['01-system-architecture','02-uml-class','03-uml-component'
 const HELP_TEXT = `Usage: npm run generate -- <command> <input.model.json> [options]
 
 Commands:
-  generate <request>       Build with the rule parser (--offline) or an agent-supplied plan
+  generate <request>       Build with the arrow-chain parser (--chain) or an agent-supplied plan
   validate <input>         Run semantic and layout validation
   layout <input>           Write the ELK layout JSON
   render <input>           Write .drawio, .svg, and .model.json artifacts
@@ -42,7 +42,7 @@ Options:
   --document <file>        Markdown, TXT, PDF, or DOCX input
   --image <file>           PNG, JPEG, or WebP input
   --template <file>        Reference .model.json or image
-  --offline                Use the limited rule parser
+  --chain                  Arrow-chain parser: reads "类型：A -> B -> C" only, no natural language
   --emit-plan <file>       Write the planning task for an agent/model to answer
   --plan <file>            Submit an answered planning task
   --audit <file>           Submit an independent audit of that answer
@@ -115,7 +115,7 @@ async function buildInput(args: string[]) {
   return prepareInput({ text: requestText(args), document: option(args, '--document'), image: option(args, '--image'), template: option(args, '--template') });
 }
 
-const AGENT_USAGE = 'This project performs no model request and stores no API key. Ask a reasoner for theDiagram DSL with --emit-plan <task.json>, then submit its answer with --plan <answer.json> [--audit <audit.json>]. --offline, --preset, --input and --examples need no model at all.';
+const AGENT_USAGE = 'This project performs no model request and stores no API key: a host agent (or any reasoner it calls) is the model. Ask for a plan task with --emit-plan <task.json>, then submit its answer with --plan <answer.json> [--audit <audit.json>]. Model-free entries are --chain (arrow chains like "系统架构：A -> B -> C", not natural language), --preset, --input and --examples.';
 
 /** Plan task emission and answer intake: the model side belongs to the caller. */
 async function runAgentPlanFlow(args: string[]): Promise<number> {
@@ -197,8 +197,8 @@ async function runGenerate(args: string[]): Promise<number> {
   if (inputIndex >= 0) { let diagram = await loadInput(args[inputIndex + 1]); const patchFile = option(args, '--patch'); if (patchFile) diagram = applyDiagramPatch(diagram, JSON.parse(await fs.readFile(path.resolve(patchFile), 'utf8')) as DiagramPatch); return writeDiagram(diagram, path.resolve(parseOptions(args).out ?? path.join(root, 'output')), true); }
   const presetIndex = args.indexOf('--preset');
   if (presetIndex >= 0) { const name = args[presetIndex + 1] as ArchitecturePreset; const factory = architecturePresets[name]; if (!factory) throw new Error(`Unknown architecture preset: ${name}`); return writeDiagram(factory(option(args, '--title')), path.join(root, 'output'), true); }
-  if (args.includes('--offline')) {
-    if (args.includes('--document') || args.includes('--image') || args.includes('--template')) throw new Error('--offline accepts text only');
+  if (args.includes('--chain')) {
+    if (args.includes('--document') || args.includes('--image') || args.includes('--template')) throw new Error('--chain accepts text only');
     return writeDiagram(createDiagramFromRequest(requestText(args) ?? ''), path.resolve(parseOptions(args).out ?? path.join(root, 'output')), true);
   }
   if (args.includes('--emit-review')) return runReviewRequest(args);

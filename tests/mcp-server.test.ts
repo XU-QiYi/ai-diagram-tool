@@ -176,16 +176,16 @@ test('generate without a configured planner refuses with an actionable hint', as
     (error: unknown) => {
       assert.equal((error as { code?: string }).code, 'AGENT_PLAN_REQUIRED');
       assert.match((error as ToolError).hint ?? '', /diagram_plan_request/);
-      assert.match((error as ToolError).hint ?? '', /offline/);
+      assert.match((error as ToolError).hint ?? '', /chain/);
       return true;
     },
   );
 });
 
-test('offline generate produces renderable artifacts', async () => {
+test('chain generate produces renderable artifacts', async () => {
   const result = await callTool(
     'diagram_generate',
-    { offline: true, text: '用户 → 服务 → 数据库', out: 'offline' },
+    { chain: true, text: '用户 → 服务 → 数据库', out: 'chain' },
     { root: workspace, env: {} },
   );
   const json = await payload(result);
