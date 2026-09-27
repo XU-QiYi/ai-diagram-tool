@@ -1,0 +1,48 @@
+{
+  "id": "generated-mindmap",
+  "title": "Mind Map",
+  "type": "mindmap",
+  "direction": "LEFT_TO_RIGHT",
+  "nodes": [
+    {
+      "id": "mind.root",
+      "label": "Central Topic",
+      "kind": "root"
+    },
+    {
+      "id": "mind.one",
+      "label": "Branch A",
+      "kind": "branch"
+    },
+    {
+      "id": "mind.two",
+      "label": "Branch B",
+      "kind": "branch"
+    },
+    {
+      "id": "mind.three",
+      "label": "Branch C",
+      "kind": "branch"
+    }
+  ],
+  "edges": [
+    {
+      "id": "mind.root-one",
+      "source": "mind.root",
+      "target": "mind.one",
+      "type": "contains"
+    },
+    {
+      "id": "mind.root-two",
+      "source": "mind.root",
+      "target": "mind.two",
+      "type": "contains"
+    },
+    {
+      "id": "mind.root-three",
+      "source": "mind.root",
+      "target": "mind.three",
+      "type": "contains"
+    }
+  ]
+}

@@ -1,0 +1,238 @@
+{
+  "id": "architecture-cloud",
+  "title": "Cloud Architecture",
+  "type": "system-architecture",
+  "direction": "LEFT_TO_RIGHT",
+  "routing": "ORTHOGONAL",
+  "theme": {
+    "name": "professional",
+    "showLegend": true
+  },
+  "nodes": [
+    {
+      "id": "node.user",
+      "label": "User",
+      "kind": "actor"
+    },
+    {
+      "id": "node.web",
+      "label": "Web Client",
+      "kind": "frontend",
+      "ports": [
+        {
+          "id": "node.web.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.web.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.gateway",
+      "label": "Cloud Load Balancer",
+      "kind": "gateway",
+      "ports": [
+        {
+          "id": "node.gateway.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.gateway.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.service",
+      "label": "Application Service",
+      "kind": "service",
+      "ports": [
+        {
+          "id": "node.service.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.service.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.repository",
+      "label": "Repository",
+      "kind": "service",
+      "ports": [
+        {
+          "id": "node.repository.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.repository.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.cache",
+      "label": "Redis Cache",
+      "kind": "cache",
+      "ports": [
+        {
+          "id": "node.cache.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.cache.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.database",
+      "label": "Primary Database",
+      "kind": "database",
+      "ports": [
+        {
+          "id": "node.database.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.database.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.external",
+      "label": "External Service",
+      "kind": "external",
+      "ports": [
+        {
+          "id": "node.external.in",
+          "side": "WEST"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge.user-web",
+      "source": "node.user",
+      "target": "node.web",
+      "targetPort": "node.web.in",
+      "label": "HTTPS",
+      "type": "uses"
+    },
+    {
+      "id": "edge.web-gateway",
+      "source": "node.web",
+      "sourcePort": "node.web.out",
+      "target": "node.gateway",
+      "targetPort": "node.gateway.in",
+      "type": "flow"
+    },
+    {
+      "id": "edge.gateway-service",
+      "source": "node.gateway",
+      "sourcePort": "node.gateway.out",
+      "target": "node.service",
+      "targetPort": "node.service.in",
+      "type": "flow"
+    },
+    {
+      "id": "edge.service-repository",
+      "source": "node.service",
+      "sourcePort": "node.service.out",
+      "target": "node.repository",
+      "targetPort": "node.repository.in",
+      "type": "uses"
+    },
+    {
+      "id": "edge.service-cache",
+      "source": "node.service",
+      "target": "node.cache",
+      "type": "uses"
+    },
+    {
+      "id": "edge.repository-database",
+      "source": "node.repository",
+      "sourcePort": "node.repository.out",
+      "target": "node.database",
+      "targetPort": "node.database.in",
+      "type": "uses"
+    },
+    {
+      "id": "edge.service-external",
+      "source": "node.service",
+      "target": "node.external",
+      "targetPort": "node.external.in",
+      "label": "REST",
+      "type": "dependency"
+    }
+  ],
+  "containers": [
+    {
+      "id": "container.platform",
+      "label": "Cloud VPC",
+      "nodeIds": [],
+      "containerIds": [
+        "container.presentation",
+        "container.backend",
+        "container.data"
+      ],
+      "direction": "LEFT_TO_RIGHT",
+      "padding": 38
+    },
+    {
+      "id": "container.presentation",
+      "label": "Presentation Layer",
+      "parentId": "container.platform",
+      "nodeIds": [
+        "node.web"
+      ],
+      "direction": "TOP_TO_BOTTOM"
+    },
+    {
+      "id": "container.backend",
+      "label": "Application Layer",
+      "parentId": "container.platform",
+      "nodeIds": [
+        "node.gateway",
+        "node.service",
+        "node.repository"
+      ],
+      "direction": "LEFT_TO_RIGHT"
+    },
+    {
+      "id": "container.data",
+      "label": "Data Layer",
+      "parentId": "container.platform",
+      "nodeIds": [
+        "node.cache",
+        "node.database"
+      ],
+      "direction": "TOP_TO_BOTTOM"
+    }
+  ],
+  "constraints": {
+    "placement": {
+      "node.user": "FIRST",
+      "node.external": "LAST"
+    },
+    "before": [
+      [
+        "node.gateway",
+        "node.service"
+      ],
+      [
+        "node.service",
+        "node.repository"
+      ]
+    ]
+  },
+  "metadata": {
+    "preset": "cloud"
+  }
+}

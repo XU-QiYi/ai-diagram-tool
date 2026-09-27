@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.loop-tmp/
+output/
+*.log

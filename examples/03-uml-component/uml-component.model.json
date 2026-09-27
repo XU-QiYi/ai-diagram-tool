@@ -1,0 +1,78 @@
+{
+  "id": "uml-component",
+  "title": "UML Component Diagram",
+  "type": "uml-component",
+  "direction": "LEFT_TO_RIGHT",
+  "nodes": [
+    {
+      "id": "comp.web",
+      "label": "<<component>>\nWeb UI",
+      "kind": "component",
+      "ports": [
+        {
+          "id": "port.web.required-api",
+          "side": "EAST",
+          "kind": "required"
+        }
+      ]
+    },
+    {
+      "id": "comp.api",
+      "label": "<<component>>\nAPI Gateway",
+      "kind": "component",
+      "ports": [
+        {
+          "id": "port.api.provided",
+          "side": "WEST",
+          "kind": "provided"
+        },
+        {
+          "id": "port.api.required-catalog",
+          "side": "EAST",
+          "kind": "required"
+        }
+      ]
+    },
+    {
+      "id": "comp.catalog",
+      "label": "<<component>>\nCatalog Service",
+      "kind": "component",
+      "ports": [
+        {
+          "id": "port.catalog.provided",
+          "side": "WEST",
+          "kind": "provided"
+        }
+      ]
+    },
+    {
+      "id": "comp.db",
+      "label": "<<database>>\nCatalog DB",
+      "kind": "database"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge.web-api",
+      "source": "comp.web",
+      "sourcePort": "port.web.required-api",
+      "target": "comp.api",
+      "targetPort": "port.api.provided",
+      "type": "dependency"
+    },
+    {
+      "id": "edge.api-catalog",
+      "source": "comp.api",
+      "sourcePort": "port.api.required-catalog",
+      "target": "comp.catalog",
+      "targetPort": "port.catalog.provided",
+      "type": "realization"
+    },
+    {
+      "id": "edge.catalog-db",
+      "source": "comp.catalog",
+      "target": "comp.db",
+      "type": "dependency"
+    }
+  ]
+}

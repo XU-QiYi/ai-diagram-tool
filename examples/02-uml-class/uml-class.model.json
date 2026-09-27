@@ -1,0 +1,230 @@
+{
+  "id": "uml-class",
+  "title": "UML Class Diagram",
+  "type": "uml-class",
+  "direction": "TOP_TO_BOTTOM",
+  "nodes": [
+    {
+      "id": "class.shape",
+      "label": "Shape",
+      "classMeta": {
+        "stereotype": "abstract",
+        "operations": [
+          {
+            "name": "getArea",
+            "returnType": "double",
+            "visibility": "+",
+            "isAbstract": true
+          },
+          {
+            "name": "getPerimeter",
+            "returnType": "double",
+            "visibility": "+",
+            "isAbstract": true
+          },
+          {
+            "name": "getShapeCount",
+            "returnType": "int",
+            "visibility": "+",
+            "isStatic": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "class.circle",
+      "label": "Circle",
+      "classMeta": {
+        "attributes": [
+          {
+            "name": "radius",
+            "type": "double",
+            "visibility": "-"
+          },
+          {
+            "name": "PI",
+            "type": "double",
+            "visibility": "+",
+            "isStatic": true,
+            "defaultValue": "3.14159"
+          }
+        ],
+        "operations": [
+          {
+            "name": "getArea",
+            "returnType": "double",
+            "visibility": "+"
+          },
+          {
+            "name": "getPerimeter",
+            "returnType": "double",
+            "visibility": "+"
+          }
+        ]
+      }
+    },
+    {
+      "id": "class.rectangle",
+      "label": "Rectangle",
+      "classMeta": {
+        "attributes": [
+          {
+            "name": "width",
+            "type": "double",
+            "visibility": "-"
+          },
+          {
+            "name": "height",
+            "type": "double",
+            "visibility": "-"
+          }
+        ],
+        "operations": [
+          {
+            "name": "getArea",
+            "returnType": "double",
+            "visibility": "+"
+          },
+          {
+            "name": "getPerimeter",
+            "returnType": "double",
+            "visibility": "+"
+          }
+        ]
+      }
+    },
+    {
+      "id": "class.drawable",
+      "label": "Drawable",
+      "classMeta": {
+        "stereotype": "interface",
+        "operations": [
+          {
+            "name": "draw",
+            "returnType": "void",
+            "visibility": "+"
+          }
+        ]
+      }
+    },
+    {
+      "id": "class.drawing",
+      "label": "Drawing",
+      "classMeta": {
+        "typeParameters": [
+          "TShape extends Shape"
+        ],
+        "attributes": [
+          {
+            "name": "layers",
+            "type": "List<Layer>",
+            "visibility": "-",
+            "multiplicity": "1..*"
+          }
+        ],
+        "operations": [
+          {
+            "name": "render",
+            "returnType": "void",
+            "visibility": "+"
+          }
+        ]
+      }
+    },
+    {
+      "id": "class.layer",
+      "label": "Layer",
+      "classMeta": {
+        "attributes": [
+          {
+            "name": "name",
+            "type": "String",
+            "visibility": "-"
+          }
+        ],
+        "operations": [
+          {
+            "name": "add",
+            "returnType": "void",
+            "visibility": "+",
+            "parameters": [
+              {
+                "name": "shape",
+                "type": "Shape"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "class.style",
+      "label": "Style",
+      "classMeta": {
+        "attributes": [
+          {
+            "name": "color",
+            "type": "Color",
+            "visibility": "-"
+          },
+          {
+            "name": "lineWidth",
+            "type": "double",
+            "visibility": "-",
+            "defaultValue": "1.0"
+          }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge.circle-shape",
+      "source": "class.circle",
+      "target": "class.shape",
+      "type": "inheritance"
+    },
+    {
+      "id": "edge.rectangle-shape",
+      "source": "class.rectangle",
+      "target": "class.shape",
+      "type": "inheritance"
+    },
+    {
+      "id": "edge.circle-drawable",
+      "source": "class.circle",
+      "target": "class.drawable",
+      "type": "realization"
+    },
+    {
+      "id": "edge.drawing-layer",
+      "source": "class.drawing",
+      "target": "class.layer",
+      "type": "composition",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "1..*"
+    },
+    {
+      "id": "edge.layer-shape",
+      "source": "class.layer",
+      "target": "class.shape",
+      "type": "aggregation",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "0..*"
+    },
+    {
+      "id": "edge.shape-style",
+      "source": "class.shape",
+      "target": "class.style",
+      "type": "association",
+      "sourceMultiplicity": "0..*",
+      "targetMultiplicity": "1"
+    },
+    {
+      "id": "edge.drawing-drawable",
+      "source": "class.drawing",
+      "target": "class.drawable",
+      "type": "dependency"
+    }
+  ]
+}

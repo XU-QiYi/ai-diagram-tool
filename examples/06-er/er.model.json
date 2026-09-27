@@ -1,0 +1,58 @@
+{
+  "id": "er",
+  "title": "ER Diagram",
+  "type": "er",
+  "direction": "LEFT_TO_RIGHT",
+  "nodes": [
+    {
+      "id": "table.user",
+      "label": "users\\nPK id\\nemail",
+      "kind": "database"
+    },
+    {
+      "id": "table.order",
+      "label": "orders\\nPK id\\nFK user_id",
+      "kind": "database"
+    },
+    {
+      "id": "table.item",
+      "label": "order_items\\nPK id\\nFK order_id",
+      "kind": "database"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge.user-order",
+      "source": "table.user",
+      "target": "table.order",
+      "label": "1 : N",
+      "type": "foreign-key",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "0..*"
+    },
+    {
+      "id": "edge.order-item",
+      "source": "table.order",
+      "target": "table.item",
+      "label": "1 : N",
+      "type": "foreign-key",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "1..*"
+    }
+  ],
+  "er": {
+    "entities": [
+      {
+        "nodeId": "table.user"
+      },
+      {
+        "nodeId": "table.order",
+        "identifying": true
+      },
+      {
+        "nodeId": "table.item",
+        "weak": true
+      }
+    ]
+  }
+}

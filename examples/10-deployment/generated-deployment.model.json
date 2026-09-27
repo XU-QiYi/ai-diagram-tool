@@ -1,0 +1,48 @@
+{
+  "id": "generated-deployment",
+  "title": "Deployment Diagram",
+  "type": "deployment",
+  "direction": "LEFT_TO_RIGHT",
+  "nodes": [
+    {
+      "id": "device.client",
+      "label": "Client Device",
+      "kind": "device"
+    },
+    {
+      "id": "node.server",
+      "label": "Application Server",
+      "kind": "node"
+    },
+    {
+      "id": "node.database",
+      "label": "Database Server",
+      "kind": "database"
+    }
+  ],
+  "edges": [
+    {
+      "id": "deployment.client-server",
+      "source": "device.client",
+      "target": "node.server",
+      "label": "HTTPS",
+      "type": "communication-path"
+    },
+    {
+      "id": "deployment.server-db",
+      "source": "node.server",
+      "target": "node.database",
+      "label": "JDBC",
+      "type": "communication-path"
+    }
+  ],
+  "deployment": {
+    "artifacts": [
+      {
+        "id": "artifact.web",
+        "label": "web.jar",
+        "deployedOn": "node.server"
+      }
+    ]
+  }
+}

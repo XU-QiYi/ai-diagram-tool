@@ -1,0 +1,27 @@
+{
+  "name": "ai-diagram-elk-drawio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI → Diagram Model → ELK.js → Draw.io automatic diagram generator",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "tsx --test tests/*.test.ts",
+    "diagram": "tsx src/cli.ts",
+    "generate": "tsx src/cli.ts",
+    "examples": "tsx src/cli.ts --examples",
+    "mcp": "tsx src/mcp/server.ts",
+    "generate:toolshare": "tsx scripts/generate-toolshare.ts",
+    "generate:architecture-report": "tsx scripts/generate-architecture-report.ts"
+  },
+  "dependencies": {
+    "@elkjs/elkjs": "npm:elkjs@^0.12.0",
+    "mammoth": "^1.12.3",
+    "pdfjs-dist": "^6.3.289"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

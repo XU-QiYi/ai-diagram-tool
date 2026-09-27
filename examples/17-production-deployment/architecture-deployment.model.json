@@ -1,0 +1,124 @@
+{
+  "id": "architecture-deployment",
+  "title": "Production Deployment Architecture",
+  "type": "deployment",
+  "direction": "LEFT_TO_RIGHT",
+  "routing": "ORTHOGONAL",
+  "theme": {
+    "name": "professional",
+    "showLegend": true
+  },
+  "nodes": [
+    {
+      "id": "device.client",
+      "label": "Client Device",
+      "kind": "device"
+    },
+    {
+      "id": "node.load-balancer",
+      "label": "Load Balancer",
+      "kind": "gateway"
+    },
+    {
+      "id": "node.app-a",
+      "label": "Application Node A",
+      "kind": "node"
+    },
+    {
+      "id": "node.app-b",
+      "label": "Application Node B",
+      "kind": "node"
+    },
+    {
+      "id": "node.cache",
+      "label": "Redis Node",
+      "kind": "cache"
+    },
+    {
+      "id": "node.database",
+      "label": "Database Node",
+      "kind": "database"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge.client-lb",
+      "source": "device.client",
+      "target": "node.load-balancer",
+      "label": "HTTPS",
+      "type": "communication-path"
+    },
+    {
+      "id": "edge.lb-a",
+      "source": "node.load-balancer",
+      "target": "node.app-a",
+      "type": "communication-path"
+    },
+    {
+      "id": "edge.lb-b",
+      "source": "node.load-balancer",
+      "target": "node.app-b",
+      "type": "communication-path"
+    },
+    {
+      "id": "edge.a-cache",
+      "source": "node.app-a",
+      "target": "node.cache",
+      "type": "communication-path"
+    },
+    {
+      "id": "edge.b-cache",
+      "source": "node.app-b",
+      "target": "node.cache",
+      "type": "communication-path"
+    },
+    {
+      "id": "edge.cache-db",
+      "source": "node.cache",
+      "target": "node.database",
+      "type": "communication-path"
+    }
+  ],
+  "containers": [
+    {
+      "id": "container.cluster",
+      "label": "Application Cluster",
+      "nodeIds": [
+        "node.app-a",
+        "node.app-b"
+      ],
+      "direction": "TOP_TO_BOTTOM"
+    },
+    {
+      "id": "container.data",
+      "label": "Data Network",
+      "nodeIds": [
+        "node.cache",
+        "node.database"
+      ],
+      "direction": "TOP_TO_BOTTOM"
+    }
+  ],
+  "deployment": {
+    "artifacts": [
+      {
+        "id": "artifact.application-a",
+        "label": "application.jar",
+        "deployedOn": "node.app-a"
+      },
+      {
+        "id": "artifact.application-b",
+        "label": "application.jar",
+        "deployedOn": "node.app-b"
+      }
+    ]
+  },
+  "constraints": {
+    "sameLayer": [
+      [
+        "node.app-a",
+        "node.app-b"
+      ]
+    ]
+  }
+}

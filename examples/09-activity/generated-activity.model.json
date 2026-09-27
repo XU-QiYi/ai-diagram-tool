@@ -1,0 +1,127 @@
+{
+  "id": "generated-activity",
+  "title": "Activity Diagram",
+  "type": "activity",
+  "direction": "TOP_TO_BOTTOM",
+  "nodes": [
+    {
+      "id": "activity.start",
+      "label": "Start",
+      "kind": "start"
+    },
+    {
+      "id": "activity.request",
+      "label": "Order Request",
+      "kind": "object"
+    },
+    {
+      "id": "activity.fork",
+      "label": "Fork",
+      "kind": "fork"
+    },
+    {
+      "id": "activity.validate",
+      "label": "Validate Order",
+      "kind": "process"
+    },
+    {
+      "id": "activity.reserve",
+      "label": "Reserve Stock",
+      "kind": "process"
+    },
+    {
+      "id": "activity.join",
+      "label": "Join",
+      "kind": "join"
+    },
+    {
+      "id": "activity.decision",
+      "label": "Valid?",
+      "kind": "decision"
+    },
+    {
+      "id": "activity.finish",
+      "label": "Finish",
+      "kind": "end"
+    }
+  ],
+  "edges": [
+    {
+      "id": "activity.start-request",
+      "source": "activity.start",
+      "target": "activity.request",
+      "type": "object-flow"
+    },
+    {
+      "id": "activity.request-fork",
+      "source": "activity.request",
+      "target": "activity.fork",
+      "type": "object-flow"
+    },
+    {
+      "id": "activity.fork-validate",
+      "source": "activity.fork",
+      "target": "activity.validate",
+      "type": "flow"
+    },
+    {
+      "id": "activity.fork-reserve",
+      "source": "activity.fork",
+      "target": "activity.reserve",
+      "type": "flow"
+    },
+    {
+      "id": "activity.validate-join",
+      "source": "activity.validate",
+      "target": "activity.join",
+      "type": "flow"
+    },
+    {
+      "id": "activity.reserve-join",
+      "source": "activity.reserve",
+      "target": "activity.join",
+      "type": "flow"
+    },
+    {
+      "id": "activity.join-decision",
+      "source": "activity.join",
+      "target": "activity.decision",
+      "type": "flow"
+    },
+    {
+      "id": "activity.decision-finish",
+      "source": "activity.decision",
+      "target": "activity.finish",
+      "guard": "[valid]",
+      "type": "flow"
+    }
+  ],
+  "activity": {
+    "swimlanes": [
+      {
+        "id": "lane.user",
+        "label": "User",
+        "nodeIds": [
+          "activity.start",
+          "activity.request"
+        ]
+      },
+      {
+        "id": "lane.system",
+        "label": "System",
+        "nodeIds": [
+          "activity.fork",
+          "activity.validate",
+          "activity.reserve",
+          "activity.join",
+          "activity.decision",
+          "activity.finish"
+        ]
+      }
+    ],
+    "objectFlows": [
+      "activity.start-request",
+      "activity.request-fork"
+    ]
+  }
+}

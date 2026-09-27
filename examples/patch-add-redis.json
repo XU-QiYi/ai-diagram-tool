@@ -1,0 +1,11 @@
+{
+  "addNodes": [
+    { "id": "node.redis", "label": "Redis", "kind": "cache" }
+  ],
+  "addEdges": [
+    { "id": "edge.service-redis", "source": "node.service", "target": "node.redis", "type": "flow" }
+  ],
+  "updateNodes": [
+    { "id": "node.service", "label": "Catalog Service" }
+  ]
+}
