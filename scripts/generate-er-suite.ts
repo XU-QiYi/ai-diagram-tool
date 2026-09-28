@@ -1,10 +1,18 @@
 /**
- * Generates the ER figure suite for the tool-share system: one concept overview, one
- * table-relationship diagram, and one Chen sub-diagram per table. Every diagram is laid
- * out and checked before it is written, so a figure that would ship broken is reported
- * instead of silently emitted.
+ * Complete ER figure set for the tool-share system, driven by scripts/er-schema.ts
+ * (verified against the entities, the Flyway migrations and the 2026-09-21 schema dump).
  *
- *   npx tsx scripts/generate-er-suite.ts [输出目录] [--density=compact|balanced|spacious]
+ * Five groups, each answering one question:
+ *   er-00-concept      概念层总体 E-R：核心实体与联系，不画属性
+ *   er-1x-module-*     分模块 E-R：该模块实体 + 联系 + 关键属性
+ *   er-2x-<table>      每张表一张实体图：该表 + 它的全部属性 + 它参与的联系
+ *   er-3x-module-cols  分模块表结构：全部列、类型、PK/FK/UK
+ *   er-9x-schema       逻辑关系模式图：15 张表，只列主外键与唯一键
+ *
+ * Every figure is laid out and validated before it is written; the console prints
+ * errors / min gap / bends per figure so nothing ships on an unverified claim.
+ *
+ *   npx tsx scripts/generate-er-suite.ts [输出目录]
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -13,163 +21,123 @@ import { createDiagram } from '../src/model/index.js';
 import { layoutDiagram } from '../src/layout/elk.js';
 import { renderDrawio } from '../src/render/drawio.js';
 import { renderSvg } from '../src/render/svg.js';
+import { AUDIT_COLUMNS, labelOf, modules, overviewRelations, relations, tableOf, tables } from './er-schema.js';
+import type { Relation } from './er-schema.js';
 import type { Diagram } from '../src/model/types.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = path.resolve(process.argv.slice(2).find((a) => !a.startsWith('--')) ?? path.join(root, 'output', 'er-suite'));
-
 const BASE = { fill: '#FFFFFF', stroke: '#1F2937', text: '#111827' };
-type Field = { name: string; type: string; key?: 'PK' | 'FK' | 'UK' };
-type Table = { key: string; label: string; fields: Field[] };
-type Relation = { label: string; from: string; fromCard: string; to: string; toCard: string };
+const attrLabel = (t: string, col: string) => `${t}-${col}`;
 
-const tables: Table[] = [
-  { key: 'user', label: '用户', fields: [
-    { name: 'user_id', type: 'BIGINT', key: 'PK' }, { name: 'username', type: 'VARCHAR(64)', key: 'UK' },
-    { name: 'password_hash', type: 'VARCHAR(255)' }, { name: 'role', type: 'VARCHAR(32)' },
-    { name: 'credit_score', type: 'INT' }, { name: 'status', type: 'VARCHAR(32)' }] },
-  { key: 'tool', label: '工具', fields: [
-    { name: 'tool_id', type: 'BIGINT', key: 'PK' }, { name: 'category_id', type: 'BIGINT', key: 'FK' },
-    { name: 'owner_id', type: 'BIGINT', key: 'FK' }, { name: 'name', type: 'VARCHAR(128)' },
-    { name: 'description', type: 'TEXT' }, { name: 'deposit', type: 'DECIMAL(10,2)' },
-    { name: 'daily_rate', type: 'DECIMAL(10,2)' }, { name: 'total_count', type: 'INT' },
-    { name: 'available_count', type: 'INT' }, { name: 'status', type: 'VARCHAR(32)' }] },
-  { key: 'category', label: '分类', fields: [
-    { name: 'category_id', type: 'BIGINT', key: 'PK' }, { name: 'name', type: 'VARCHAR(64)', key: 'UK' },
-    { name: 'icon', type: 'VARCHAR(64)' }, { name: 'sort_order', type: 'INT' }, { name: 'status', type: 'VARCHAR(32)' }] },
-  { key: 'order', label: '租借订单', fields: [
-    { name: 'order_id', type: 'BIGINT', key: 'PK' }, { name: 'tool_id', type: 'BIGINT', key: 'FK' },
-    { name: 'borrower_id', type: 'BIGINT', key: 'FK' }, { name: 'start_date', type: 'DATETIME' },
-    { name: 'end_date', type: 'DATETIME' }, { name: 'actual_return', type: 'DATETIME' },
-    { name: 'status', type: 'VARCHAR(32)' }, { name: 'overdue', type: 'TINYINT(1)' }, { name: 'cancel_reason', type: 'VARCHAR(255)' }] },
-  { key: 'review', label: '评价', fields: [
-    { name: 'review_id', type: 'BIGINT', key: 'PK' }, { name: 'order_id', type: 'BIGINT', key: 'FK' },
-    { name: 'rating', type: 'TINYINT' }, { name: 'content', type: 'TEXT' }, { name: 'anonymous', type: 'TINYINT(1)' }] },
-  { key: 'creditlog', label: '信用日志', fields: [
-    { name: 'log_id', type: 'BIGINT', key: 'PK' }, { name: 'user_id', type: 'BIGINT', key: 'FK' },
-    { name: 'delta', type: 'INT' }, { name: 'reason', type: 'VARCHAR(255)' }] },
-  { key: 'notification', label: '消息通知', fields: [
-    { name: 'notification_id', type: 'BIGINT', key: 'PK' }, { name: 'user_id', type: 'BIGINT', key: 'FK' },
-    { name: 'title', type: 'VARCHAR(128)' }, { name: 'body', type: 'TEXT' }, { name: 'is_read', type: 'TINYINT(1)' }] },
-];
-
-const relations: Relation[] = [
-  { label: '发布', from: 'user', fromCard: '1', to: 'tool', toCard: 'N' },
-  { label: '归属', from: 'tool', fromCard: 'N', to: 'category', toCard: '1' },
-  { label: '下单', from: 'user', fromCard: '1', to: 'order', toCard: 'N' },
-  { label: '涉及', from: 'order', fromCard: 'N', to: 'tool', toCard: '1' },
-  { label: '获得', from: 'order', fromCard: '1', to: 'review', toCard: '1' },
-  { label: '记入', from: 'user', fromCard: '1', to: 'creditlog', toCard: 'N' },
-  { label: '接收', from: 'user', fromCard: '1', to: 'notification', toCard: 'N' },
-  { label: '触发', from: 'order', fromCard: '1', to: 'notification', toCard: 'N' },
-];
-
-const label = (key: string) => tables.find((t) => t.key === key)!.label;
-
-function conceptDiagram(): Diagram {
+/** Chen diagram: entities, optional attribute ellipses, relationship diamonds. */
+function chen(id: string, title: string, entityNames: string[], opts: {
+  attributesFor?: string[]; attrFilter?: (t: string, col: string) => boolean; withRelations?: boolean; relationSet?: Relation[];
+} = {}): Diagram {
   const nodes: any[] = [];
   const edges: any[] = [];
   const entityIds: string[] = [];
-  const relationshipIds: string[] = [];
-  for (const t of tables) {
-    entityIds.push(`entity.${t.key}`);
-    nodes.push({ id: `entity.${t.key}`, label: t.label, kind: 'entity', style: { ...BASE, shape: 'shape=rectangle;rounded=0' }, width: 150, height: 64 });
-  }
-  for (const r of relations) {
-    const rid = `relationship.${r.label}`;
-    relationshipIds.push(rid);
-    nodes.push({ id: rid, label: r.label, kind: 'relationship', style: { ...BASE, shape: 'shape=rhombus' }, width: 110, height: 64 });
-    edges.push({ id: `chen.${r.from}-${r.label}`, source: `entity.${r.from}`, target: rid, label: r.fromCard, type: 'association' });
-    edges.push({ id: `chen.${r.to}-${r.label}`, source: `entity.${r.to}`, target: rid, label: r.toCard, type: 'association' });
-  }
-  return { id: 'er-00-concept', title: '概念结构总图', type: 'chen-er', direction: 'LEFT_TO_RIGHT', layout: { density: 'balanced', targetAspectRatio: 1.3 }, nodes, edges, chenEr: { entityIds, relationshipIds, attributeIds: [] } } as Diagram;
-}
-
-function schemaDiagram(): Diagram {
-  const nodes = tables.map((t) => ({
-    id: `table.${t.key}`, label: `${t.label}（${t.key}）`, kind: 'class',
-    classMeta: { attributes: t.fields.map((f) => ({ name: f.name, type: f.type, key: f.key })) },
-  }));
-  const edges = relations.map((r) => ({
-    id: `fk.${r.from}-${r.to}`, source: `table.${r.from}`, target: `table.${r.to}`, type: 'association',
-    label: r.label, sourceMultiplicity: r.fromCard === '1' ? '1' : '0..*', targetMultiplicity: r.toCard === '1' ? '1' : '0..*',
-  }));
-  return { id: 'er-01-schema', title: '表关系总图（含字段与主外键）', type: 'uml-class', direction: 'LEFT_TO_RIGHT', layout: { density: 'balanced', targetAspectRatio: 1.35 }, nodes, edges } as unknown as Diagram;
-}
-
-/** One table and its own attributes, plus the relations it takes part in. Only key
- * fields are drawn here - the full column list belongs to the schema overview, and
- * fanning 10 ellipses off one entity is what made this figure unreadably tight. */
-function tableDiagram(table: Table): Diagram {
-  const shownFields = table.fields.filter((f) => f.key);
-  const nodes: any[] = [{ id: `entity.${table.key}`, label: table.label, kind: 'entity', style: { ...BASE, shape: 'shape=rectangle;rounded=0' }, width: 150, height: 64 }];
-  const edges: any[] = [];
-  const entityIds = [`entity.${table.key}`];
   const attributeIds: string[] = [];
   const relationshipIds: string[] = [];
-  for (const f of shownFields) {
-    const aid = `attribute.${table.key}-${f.name}`;
-    attributeIds.push(aid);
-    nodes.push({ id: aid, label: f.name, kind: f.key === 'PK' ? 'key-attribute' : 'attribute', style: { ...BASE, shape: 'shape=ellipse' } });
-    edges.push({ id: `attr.${table.key}-${f.name}`, source: `entity.${table.key}`, target: aid, type: 'association' });
+  const involved = new Set(entityNames);
+  for (const name of entityNames) {
+    entityIds.push(`entity.${name}`);
+    nodes.push({ id: `entity.${name}`, label: labelOf(name), kind: 'entity', style: { ...BASE, shape: 'shape=rectangle;rounded=0' }, width: 150, height: 64 });
   }
-  for (const r of relations.filter((x) => x.from === table.key || x.to === table.key)) {
-    const other = r.from === table.key ? r.to : r.from;
-    const card = r.from === table.key ? r.toCard : r.fromCard;
-    const rid = `relationship.${r.label}`;
-    if (!relationshipIds.includes(rid)) {
-      relationshipIds.push(rid);
-      nodes.push({ id: rid, label: r.label, kind: 'relationship', style: { ...BASE, shape: 'shape=rhombus' }, width: 110, height: 64 });
+  for (const t of opts.attributesFor ?? []) {
+    for (const c of tableOf(t).columns) {
+      if (opts.attrFilter && !opts.attrFilter(t, c.name)) continue;
+      const aid = `attribute.${attrLabel(t, c.name)}`;
+      attributeIds.push(aid);
+      nodes.push({ id: aid, label: c.name, kind: c.key === 'PK' ? 'key-attribute' : 'attribute', style: { ...BASE, shape: 'shape=ellipse' } });
+      edges.push({ id: `attr.${attrLabel(t, c.name)}`, source: `entity.${t}`, target: aid, type: 'association' });
     }
-    if (!entityIds.includes(`entity.${other}`)) {
-      entityIds.push(`entity.${other}`);
-      nodes.push({ id: `entity.${other}`, label: label(other), kind: 'entity', style: { ...BASE, shape: 'shape=rectangle;rounded=0', dashed: true }, width: 150, height: 64 });
-    }
-    edges.push({ id: `chen.${other}-${r.label}`, source: `entity.${other}`, target: rid, label: other === r.from ? r.fromCard : r.toCard, type: 'association' });
-    edges.push({ id: `chen.${table.key}-${r.label}.${other}`, source: `entity.${table.key}`, target: rid, label: card, type: 'association' });
   }
+  if (opts.withRelations !== false) {
+    for (const r of (opts.relationSet ?? relations).filter((x) => involved.has(x.a) && involved.has(x.b))) {
+      const rid = `relationship.${r.name}`;
+      if (!relationshipIds.includes(rid)) {
+        relationshipIds.push(rid);
+        nodes.push({ id: rid, label: r.name, kind: 'relationship', style: { ...BASE, shape: 'shape=rhombus' }, width: 110, height: 64 });
+      }
+      edges.push({ id: `chen.${r.name}.${r.a}`, source: `entity.${r.a}`, target: rid, label: r.cardA, type: 'association' });
+      edges.push({ id: `chen.${r.name}.${r.b}`, source: `entity.${r.b}`, target: rid, label: r.cardB, type: 'association' });
+    }
+  }
+  return { id, title, type: 'chen-er', direction: 'LEFT_TO_RIGHT', layout: { density: 'balanced', targetAspectRatio: 1.25 }, nodes, edges, chenEr: { entityIds, attributeIds, relationshipIds } } as unknown as Diagram;
+}
+
+/** uml-class diagram listing every column with its type and key role. */
+function classDiagram(id: string, title: string, names: string[]): Diagram {
   return {
-    id: `er-${tables.indexOf(table) + 2}-${table.key}`, title: `${table.label} 实体局部图`, type: 'chen-er',
-    direction: 'LEFT_TO_RIGHT', layout: { density: 'balanced', targetAspectRatio: 1.2 },
-    nodes, edges, chenEr: { entityIds, attributeIds, relationshipIds },
+    id, title, type: 'uml-class', direction: 'LEFT_TO_RIGHT',
+    layout: { density: 'balanced', targetAspectRatio: 1.35 },
+    nodes: names.map((n) => ({
+      id: `table.${n}`, label: `${labelOf(n)} ${n}`, kind: 'class',
+      classMeta: { attributes: tableOf(n).columns.map((c) => ({ name: c.name, type: c.type, key: c.key })) },
+    })),
+    edges: relations.filter((r) => r.via.every((v) => names.includes(v.child)) && names.includes(r.a) && names.includes(r.b))
+      .map((r) => ({ id: `rel.${r.name}`, source: `table.${r.via[0].child}`, target: `table.${r.a === r.via[0].child ? r.b : r.a}`, type: 'association', label: r.physical ? r.name : `${r.name}(逻辑)`, sourceMultiplicity: 'N', targetMultiplicity: '1' })),
   } as unknown as Diagram;
 }
 
-await fs.mkdir(out, { recursive: true });
-/** Smallest gap between any two node boxes: the validator's pass/fail says nothing about crowding. */
+const CORE = ['user', 'tool', 'category', 'rental_order', 'review', 'credit_log', 'message', 'dispute'];
+/** Key columns only: drawing every column of every table in a module E-R is what turns
+ *  a 12-node figure into a 45-node one with negative gaps (measured). Full columns live
+ *  in the per-table entity diagrams and the *-cols figures. */
+const isKeyColumn = (col: string) => col === 'id' || col.endsWith('_id');
+// Pinning the hub table to the first layer is the one structural lever measured to
+// remove crossings on this engine (see docs/superpowers/specs/...-ai-led-drawing-authority.md §12/§16).
+const pinHub = (model: Diagram): Diagram => ({ ...model, constraints: { ...(model.constraints ?? {}), placement: { 'entity.user': 'FIRST', 'table.user': 'FIRST' } } });
+
+const suite: Diagram[] = [
+  pinHub(chen('er-00-concept', '总体 E-R 图（核心实体与联系）', CORE, { relationSet: overviewRelations() })),
+  // Only the module's own tables. Pulling "neighbours" as well makes user - a hub with ten
+  // relations - drag in half the schema and turns a 15-node figure into a 42-node one.
+  ...modules.map((m, i) => pinHub(chen(`er-1${i}-module-${m.id}`, `${m.title} E-R 图`, m.tables,
+    { attributesFor: m.tables, attrFilter: (_t, c) => isKeyColumn(c) }))),
+  // 教科书口径：实体图只画实体与其属性，联系留给分 E-R 图，所以这里不放菱形。
+  ...tables.map((t, i) => chen(`er-2${String(i).padStart(2, '0')}-${t.name}-entity`, `${t.label}（${t.name}）实体图`, [t.name], { attributesFor: [t.name], withRelations: false, attrFilter: (_t, c) => !AUDIT_COLUMNS.has(c) })),
+  ...modules.map((m, i) => classDiagram(`er-3${i}-module-${m.id}-cols`, `${m.title} 表结构`, m.tables)),
+  pinHub(classDiagram('er-90-schema', '逻辑关系模式图（仅列主键、外键与唯一键）', tables.map((t) => t.name))),
+];
+
 function minGapPx(nodes: Array<{ x: number; y: number; width: number; height: number }>): number {
   let min = Number.POSITIVE_INFINITY;
   for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
     const a = nodes[i], b = nodes[j];
-    const gap = Math.max(Math.max(b.x - (a.x + a.width), a.x - (b.x + b.width)), Math.max(b.y - (a.y + a.height), a.y - (b.y + b.height)));
-    if (gap < min) min = gap;
+    min = Math.min(min, Math.max(Math.max(b.x - a.x - a.width, a.x - b.x - b.width), Math.max(b.y - a.y - a.height, a.y - b.y - b.height)));
   }
   return Number.isFinite(min) ? Math.round(min) : -1;
 }
 
-const forcedDensity = process.argv.find((a) => a.startsWith('--density='))?.split('=')[1] as
-  | 'compact' | 'balanced' | 'spacious' | undefined;
-const suite = [conceptDiagram(), schemaDiagram(), ...tables.map(tableDiagram)];
-const summary: string[] = [];
+await fs.mkdir(out, { recursive: true });
+const rows: string[] = [];
 for (const model of suite) {
-  // Crowding does not improve monotonically with the density preset: measured, the
-  // attribute-heavy tables got TIGHTER under spacious (er-3-tool 7px -> 0px). So each
-  // figure picks its own preset by its own minimum gap instead of inheriting one.
-  const candidates: Array<'compact' | 'balanced' | 'spacious'> = forcedDensity ? [forcedDensity] : ['balanced', 'spacious'];
-  let best: { density: string; layout: Awaited<ReturnType<typeof layoutDiagram>>; gap: number } | undefined;
-  for (const density of candidates) {
-    const diagram = createDiagram(JSON.parse(JSON.stringify({ ...model, layout: { ...(model.layout ?? {}), density } })));
+  let best: { label: string; layout: Awaited<ReturnType<typeof layoutDiagram>>; gap: number; score: number } | undefined;
+  // uml-class lays out with layered, where direction is honoured; chen-er defaults to the
+  // force-directed engine, where direction was measured to change nothing.
+  const directions = model.type === 'uml-class' ? (['LEFT_TO_RIGHT', 'TOP_TO_BOTTOM'] as const) : [model.direction ?? 'LEFT_TO_RIGHT'];
+  // A "one entity + fifteen attribute ellipses" figure is exactly where the force-directed
+  // default starts throwing a line through a box, so layered competes for it too.
+  const algorithms = model.type === 'chen-er' ? (['auto', 'layered'] as const) : ['auto'] as const;
+  for (const direction of directions) for (const algorithm of algorithms) for (const density of ['balanced', 'spacious'] as const) {
+    const diagram = createDiagram(JSON.parse(JSON.stringify({ ...model, direction, layout: { ...(model.layout ?? {}), algorithm, density } })));
     const layout = await layoutDiagram(diagram, 5);
-    const candidate = { density, layout, gap: minGapPx(layout.nodes) };
-    if (!best || candidate.gap > best.gap) best = candidate;
+    const ar = layout.width / layout.height;
+    const gap = minGapPx(layout.nodes);
+    const errors = (layout.issues ?? []).filter((i) => i.severity === 'ERROR').length;
+    const score = -errors * 1e9 + (ar >= 0.8 && ar <= 1.7 ? 1e6 : 0) + gap;
+    if (!best || score > best.score) best = { label: `${direction}/${algorithm}/${density}`, layout, gap, score };
   }
-  const { layout, gap } = best;
-  const errors = (layout.issues ?? []).filter((i) => i.severity === 'ERROR');
-  await fs.writeFile(path.join(out, `${model.id}.model.json`), JSON.stringify({ ...model, layout: { ...(model.layout ?? {}), density: best.density } }, null, 2), 'utf8');
-  await fs.writeFile(path.join(out, `${model.id}.drawio`), renderDrawio(layout), 'utf8');
-  await fs.writeFile(path.join(out, `${model.id}.svg`), renderSvg(layout), 'utf8');
-  summary.push(`${model.id.padEnd(22)} ${String(layout.nodes.length).padStart(2)} 节点 ${Math.round(layout.width)}x${Math.round(layout.height)} density=${best.density.padEnd(8)} iter=${layout.iterations} errors=${errors.length}${errors.length ? ' ' + [...new Set(errors.map((e) => e.code))].join(',') : ''} minGap=${gap}px`);
+  const errors = (best.layout.issues ?? []).filter((i) => i.severity === 'ERROR');
+  const bends = best.layout.edges.reduce((n, e) => n + (e.sections?.[0]?.bendPoints?.length ?? 0), 0);
+  const chosen = best.layout.diagram;
+  await fs.writeFile(path.join(out, `${model.id}.model.json`), JSON.stringify({ ...model, direction: chosen.direction, layout: { ...(model.layout ?? {}), algorithm: chosen.layout?.algorithm, density: chosen.layout?.density } }, null, 2), 'utf8');
+  await fs.writeFile(path.join(out, `${model.id}.drawio`), renderDrawio(best.layout), 'utf8');
+  await fs.writeFile(path.join(out, `${model.id}.svg`), renderSvg(best.layout), 'utf8');
+  rows.push(`${model.id.padEnd(30)} ${String(best.layout.nodes.length).padStart(2)} 节点 ${Math.round(best.layout.width)}x${Math.round(best.layout.height)} ar=${(best.layout.width / best.layout.height).toFixed(2)} ${best.label.padEnd(20)} errors=${errors.length}${errors.length ? ' [' + [...new Set(errors.map((e) => e.code))].join(',') + ']' : ''} minGap=${best.gap}px 拐点=${bends}`);
 }
-console.log(`out=${out}${forcedDensity ? ` (forced ${forcedDensity})` : ' (per-figure density)'}`);
-console.log(summary.join('\n'));
-console.log(`\nwrote ${suite.length} figures to ${out}`);
+console.log(rows.join('\n'));
+const bad = rows.filter((r) => !r.includes('errors=0')).length;
+console.log(`\n${suite.length} figures -> ${out}；其中 ${suite.length - bad} 张 0 错误，${bad} 张仍有问题。`);
