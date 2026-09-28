@@ -111,6 +111,8 @@ npm run generate -- --input examples/01-system-architecture/system-architecture.
 
 两个档位都仍然阻断的，是"工具自己失职"的那部分：断引用与重复 ID、悬空端口、节点落在容器外、未知形状名、**边没有被路由**、文字超出节点、画布溢出，以及这个工具的核心承诺——**节点重叠、连线穿框、连线交叉**。
 
+关于"边没有被路由"：`layout.algorithm` 选 `stress` / `radial` 时 ELK 偶尔不给某几条边任何路径。这类边由 `vendor/libavoid/` 的**替补连线器**补画——只补 ELK 漏掉的，绝不重画 ELK 已经画好的，并在质量报告里写 `EDGE_ROUTED_BY_FALLBACK` 说明这几条不是 ELK 画的；连替补也补不出来才报 `EDGE_UNROUTED` 并阻断。**它没有接管全部连线**：10 张真实图对比实测是 ELK 更好 1 张、libavoid 更好 0 张、持平 9 张（那张不平的图上它把 1 处交叉变成 3 处）。出处、许可证与理由记在 `vendor/libavoid/NOTES.md`。
+
 要回到旧行为，在模型里写 `"layout": { "profile": "strict" }`。档位随模型传递，CLI、MCP 与 plan 提交走同一入口，无需命令行参数。
 
 ## 视觉复核门禁
@@ -325,6 +327,7 @@ npm run generate -- --chain "画一个 Chen ER 图。实体：学生、课程；
 - `src/layout/elk.ts`：ELK compound layout、端口、正交路由和最多 5 次质量迭代。
 - `src/validate/`：UML 语义与几何质量检查。
 - `src/render/`：可编辑 mxGraph XML 与 SVG 预览。
+- `vendor/libavoid/`：替补连线器（drawio 编译的 libavoid，LGPL-2.1 + Apache-2.0），只在 ELK 漏画边时启用；出处、许可证与"为什么不当主连线器"的实测记录见该目录 `NOTES.md`。
 - `src/pipeline/split.ts`：超过 40 节点的概览/子系统拆分。
 
 增加 UML Sequence Diagram 的新特性时，模型字段在 `src/model/types.ts`，时序专用 Draw.io/SVG 渲染在 `src/render/drawio.ts` 与 `src/render/svg.ts` 的 `renderSequence*`，规则放入 `src/validate/uml-rules.ts`，示例放入 `src/diagram-types/extensions.ts`。新增全新图类型则还要在 `DiagramType` 和 `src/diagram-types/registry.ts` 注册。

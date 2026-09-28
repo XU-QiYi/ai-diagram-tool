@@ -13,6 +13,7 @@ import type {
   ValidationIssue,
 } from "../model/types.js";
 import { validateLayout } from "../validate/index.js";
+import { routeMissingEdges } from "./fallback-router.js";
 import { measureLabel, measureNode } from "../utils/text.js";
 import { LAYOUT_ALGORITHMS, type LayoutAlgorithm } from "../model/types.js";
 
@@ -449,6 +450,24 @@ export async function layoutDiagram(
       result = await elk.layout(buildElkGraph(diagram, profile));
     }
     const flat = flattenLayout(diagram, result);
+    // Edges ELK did not route at all would ship as invisible relationships, so the
+    // vendored router fills exactly those - never a line ELK already drew.
+    const unrouted = flat.edges.filter((e) => !e.sections || !e.sections.length);
+    const fallbackRoutes = await routeMissingEdges(flat.nodes, unrouted);
+    for (const [id, route] of fallbackRoutes) {
+      const edge = flat.edges.find((e) => e.id === id);
+      if (edge) edge.sections = [route];
+    }
+    const fallbackIssues: ValidationIssue[] = fallbackRoutes.size
+      ? [
+          {
+            severity: 'WARNING',
+            code: 'EDGE_ROUTED_BY_FALLBACK',
+            message: `${fallbackRoutes.size} edge(s) got no route from ELK and were drawn by the vendored libavoid fallback: ${[...fallbackRoutes.keys()].join(', ')}`,
+            phase: 'layout',
+          },
+        ]
+      : [];
     last = {
       diagram,
       ...flat,
@@ -458,9 +477,13 @@ export async function layoutDiagram(
       iterations: iteration,
     };
     const report = validateLayout(last);
-    const issues = fallbackWarning
-      ? [{ severity: 'WARNING' as const, code: 'ELK_WRAPPING_FALLBACK', message: fallbackWarning, phase: 'layout' as const }, ...report.issues]
-      : report.issues;
+    const issues = [
+      ...(fallbackWarning
+        ? [{ severity: 'WARNING' as const, code: 'ELK_WRAPPING_FALLBACK', message: fallbackWarning, phase: 'layout' as const }]
+        : []),
+      ...fallbackIssues,
+      ...report.issues,
+    ];
     last.issues = issues;
     last.warnings = [...new Set(issues.map((issue) => issue.message))];
     const currentStatus = iterationStatus(issues);

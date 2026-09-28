@@ -436,8 +436,9 @@ test('the layout loop stops early when no preference it can turn affects the fin
 
 test('an explicit relayoutTriggers list keeps the full iteration budget even when the default ladder is out of knobs', async () => {
   const base = layeredArchitecture();
-  const stress = { ...base, layout: { ...(base.layout ?? {}), algorithm: 'stress' as const, relayoutTriggers: ['EDGE_UNROUTED'] } };
+  const stress = { ...base, layout: { ...(base.layout ?? {}), algorithm: 'stress' as const, relayoutTriggers: ['EDGE_CROSSING'] } };
   const r = await layoutDiagram(stress);
+  assert.ok(r.issues?.some(i => i.code === 'EDGE_CROSSING'), 'the fixture must still carry a finding the ladder cannot fix');
   assert.equal(r.iterations, 5, 'the author asked for another pass; honour it instead of stopping at one');
   assert.equal(r.iterations, r.iterationHistory?.length);
   assert.equal(r.status, 'failed_after_max_iterations');
@@ -469,15 +470,17 @@ test('spacing violations still get the ladder and converge clean', async () => {
   assert.ok(!r.issues?.some(i => i.severity === 'ERROR'));
 });
 
-test('an unrouted edge is reported and still drawn, never silently dropped from the preview', async () => {
-  const base = layeredArchitecture();
-  const stress = await layoutDiagram({ ...base, layout: { ...(base.layout ?? {}), algorithm: 'stress' } }, 2);
-  const unrouted = (stress.issues ?? []).filter(i => i.code === 'EDGE_UNROUTED');
-  assert.ok(unrouted.length > 0, 'this fixture must reproduce the unrouted case the old code hid');
-  assert.ok(stress.issues?.some(i => i.code === 'EDGE_UNROUTED' && i.severity === 'ERROR'), 'unrouted is honesty, not taste — it must block');
-
-  const laid = await layoutDiagram(base, 2);
+test('an unrouted edge is reported by the validator and still drawn by the preview', async () => {
+  const laid = await layoutDiagram(layeredArchitecture(), 2);
+  // Reached through the validator directly: inside layoutDiagram the vendored fallback
+  // now fills these gaps, so this is the "even the fallback produced nothing" contract.
   const stripped = { ...laid, edges: laid.edges.map(e => ({ ...e, sections: undefined })) };
+  const report = validateLayout(stripped);
+  const unrouted = report.issues.filter(i => i.code === 'EDGE_UNROUTED');
+  assert.equal(unrouted.length, laid.edges.length, 'every edge without a route must be named');
+  assert.ok(unrouted.every(i => i.severity === 'ERROR'), 'unrouted is honesty, not taste — it must block');
+  assert.equal(report.valid, false);
+
   const svg = renderSvg(stripped);
   assert.equal((svg.match(/stroke-width="1.5"/g) ?? []).length, laid.edges.length,
     'every edge must appear in the SVG even when the engine gave it no route');

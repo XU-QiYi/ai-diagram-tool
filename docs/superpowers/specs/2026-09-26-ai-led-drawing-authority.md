@@ -186,3 +186,17 @@ AI 可直接交出一份带几何的对象清单；也可选择调用 `layoutDia
 同时撤回本轮一度加进 `LayoutPreferences` 的 `honorNodeOrder`：它在管线里没有任何可观察效果，属于"读起来像承诺的死配置"。README 的 `constraints` 三条也已改成逐条真话（placement 生效 / sameLayer 仅记录并被检测 / before 不改变布局）。
 
 回归：`npm run build` 干净，`npm test` 134/134（新增 placement 生效与 sameLayer 被检测两例，以及"建议文案不得承诺无效杠杆"的断言），19 个 examples 画幅**零变化**。
+
+## 13. 引入 libavoid，但只当替补（2026-09-26）
+
+技术负责人要求"把别人的搬进来"，并认为"不商用所以许可证无所谓"。**理由要纠正，结论对他有利**：许可证约束的是**分发**而非商用；且 LGPL-2.1 允许把它当库使用，只要保留声明并允许替换。本项目不分发，义务接近零——保留 `vendor/libavoid/LICENSE` 与 `NOTES.md` 即完成该做的部分。drawio 仓库整体是 **Apache-2.0**（GitHub API 识别），那个 25KB 的路由核心属于它。
+
+搬进来之后**先量再装**：同样的方格、同样的端点，只换连线器，数"穿盒 / 交叉 / 总长"。10 张图结果：**ELK 更好 1 张，libavoid 更好 0 张，持平 9 张**；那张不平的（真实毕设总体图）libavoid 把 1 处交叉变成 3 处，只换来约 5% 的线长缩短。原因就是 §12 那条：它不许动方格，而结是"谁连谁"决定的。所以**没有**让它接管连线——那会是拿 559KB 换一个更差的结果。
+
+它唯一的实绩恰好是我们今天就出故障的地方：`layout.algorithm` 选 `stress` / `radial` 时 ELK 会给不出某些边的路径（实测 `layeredArchitecture` + stress 漏 2 条）。因此按技术负责人决定接入为**替补**：`src/layout/fallback-router.ts` 只给"ELK 完全没画"的边补路径，容器照 `filterEnclosing` 的结论**不作为障碍**，端点用"朝对侧的面中点"（与 draw.io 浮动端点同一规则）。三条诚实性设计：
+
+1. 只在需要时惰性加载那 559KB，正常图不付解析代价（实测 layered 路径依旧零 issue）。
+2. 补过的边一定在报告里留 `EDGE_ROUTED_BY_FALLBACK`（WARNING），不冒充 ELK 的成果。
+3. 连替补也补不出来才继续报 `EDGE_UNROUTED` 并阻断。
+
+实测效果：architecture + stress 的漏画边 2 → 0，`EDGE_UNROUTED` 消失，改为如实标注替补；`radial` 同样补齐，但它自己的构图错误（重叠、出框、溢出）照旧报出。分层默认路径与 19 个 examples 不受影响。新增 `tests/fallback-router.test.ts` 两例（补得上 + 不需要时绝不插手）。
