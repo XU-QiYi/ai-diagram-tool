@@ -356,11 +356,26 @@ test('DRAWIO_PATH set but missing is a loud configuration error; backends both d
   const resolution = await resolveDrawioExecutable({ DRAWIO_PATH: FAKE_EXE }, async () => false);
   assert.equal(resolution.kind, 'env-missing');
 
-  // Empty env => no DRAWIO_PATH, no ProgramFiles/LOCALAPPDATA candidates; default loadSharp then fails loudly too.
-  await assert.rejects(() => rasterizeForReview({ drawioPath, svgPath, outPath: path.join(dir, 'fb.png') }, {
+  // The contract that must hold on every machine: when no backend can produce a bitmap,
+  // the call fails loudly and writes nothing. Injecting the loader keeps this independent
+  // of whether `require('sharp')` happens to resolve here (a parent project's
+  // node_modules can provide it, which is not this tool's business).
+  const outPath = path.join(dir, 'fb.png');
+  await assert.rejects(() => rasterizeForReview({ drawioPath, svgPath, outPath }, {
     env: {},
     executableExists: async () => false,
+    loadSharp: async () => { throw new Error('sharp-svg backend unavailable: MIMO_NODE_MODULES is not set'); },
   }), (error: Error) => /sharp-svg backend unavailable/.test(error.message) && /MIMO_NODE_MODULES/.test(error.message));
+  await assert.rejects(() => fs.stat(outPath), 'a failed rasterization must not leave a file behind');
+
+  // The real loader's own "both sources missing" wording can only be asserted where
+  // sharp is genuinely unresolvable.
+  if (!sharpAvailability.ok) {
+    await assert.rejects(() => rasterizeForReview({ drawioPath, svgPath, outPath }, {
+      env: {},
+      executableExists: async () => false,
+    }), (error: Error) => /sharp-svg backend unavailable/.test(error.message) && /MIMO_NODE_MODULES/.test(error.message));
+  }
 });
 
 async function sharpProbe(): Promise<{ ok: boolean; reason: string }> {
