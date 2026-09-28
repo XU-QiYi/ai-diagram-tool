@@ -140,7 +140,7 @@ AI 可直接交出一份带几何的对象清单；也可选择调用 `layoutDia
 
 `EDGE_UNROUTED` 也已落地（ERROR，两档都阻断），并修掉 `svg.ts` 的 `if (!s) return ""`——无路由的边以前在预览里**整条消失**，而 `.drawio` 会交给 Draw.io 自动补一条，两个渲染器对同一条边给出不同真相。实测 `layeredArchitecture` 选 `stress` 触发 2 条（`edge.user-web`、`edge.service-external`），默认路径 24 张图 0 条。
 
-仍未做：① 惰性施修（把重排从"全局加间距"改成 code→旋钮，见 §8.1 第 4 条）；② SVG 侧的 `cylinder` / `umlActor` 等形状支持仍不完整（只有 chen-er 分支做了子串匹配），两个渲染器的形状表现还不一致；③ `SELF_RELATIONSHIP` 默认 ERROR 会挡住状态机自环这类合法结构，属"评判作者"的残留，待议。
+仍未做：① 惰性施修（把重排从"全局加间距"改成 code→旋钮，见 §8.1 第 4 条）——**已由 §11 完成**；② SVG 侧的 `cylinder` / `umlActor` 等形状支持仍不完整（只有 chen-er 分支做了子串匹配），两个渲染器的形状表现还不一致，当前按"SVG 仅示意"定位处理；③ ~~`SELF_RELATIONSHIP` 默认 ERROR 会挡住状态机自环这类合法结构~~——**已放开**：先实测确认 ELK 会给自环真实路径、两个渲染器都画得出来，才删掉规则，并补上此前完全缺失的测试覆盖（见 `docs/verification/self-transition/`）。
 
 测试 130/130，`npm run build` 干净，`npm run examples` 正常。本轮与 §9 都在独立仓库 `dcff177` 之后提交。
 
