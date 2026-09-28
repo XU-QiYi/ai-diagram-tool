@@ -4,7 +4,7 @@
  * out and checked before it is written, so a figure that would ship broken is reported
  * instead of silently emitted.
  *
- *   npm run diagram -- --suite        (or)  npx tsx scripts/generate-er-suite.ts
+ *   npx tsx scripts/generate-er-suite.ts [输出目录] [--density=compact|balanced|spacious]
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -16,7 +16,7 @@ import { renderSvg } from '../src/render/svg.js';
 import type { Diagram } from '../src/model/types.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const out = path.resolve(process.argv[2] ?? path.join(root, 'output', 'er-suite'));
+const out = path.resolve(process.argv.slice(2).find((a) => !a.startsWith('--')) ?? path.join(root, 'output', 'er-suite'));
 
 const BASE = { fill: '#FFFFFF', stroke: '#1F2937', text: '#111827' };
 type Field = { name: string; type: string; key?: 'PK' | 'FK' | 'UK' };
@@ -97,14 +97,17 @@ function schemaDiagram(): Diagram {
   return { id: 'er-01-schema', title: '表关系总图（含字段与主外键）', type: 'uml-class', direction: 'LEFT_TO_RIGHT', layout: { density: 'balanced', targetAspectRatio: 1.35 }, nodes, edges } as unknown as Diagram;
 }
 
-/** One table and its own attributes, plus the relations it takes part in. */
+/** One table and its own attributes, plus the relations it takes part in. Only key
+ * fields are drawn here - the full column list belongs to the schema overview, and
+ * fanning 10 ellipses off one entity is what made this figure unreadably tight. */
 function tableDiagram(table: Table): Diagram {
+  const shownFields = table.fields.filter((f) => f.key);
   const nodes: any[] = [{ id: `entity.${table.key}`, label: table.label, kind: 'entity', style: { ...BASE, shape: 'shape=rectangle;rounded=0' }, width: 150, height: 64 }];
   const edges: any[] = [];
   const entityIds = [`entity.${table.key}`];
   const attributeIds: string[] = [];
   const relationshipIds: string[] = [];
-  for (const f of table.fields) {
+  for (const f of shownFields) {
     const aid = `attribute.${table.key}-${f.name}`;
     attributeIds.push(aid);
     nodes.push({ id: aid, label: f.name, kind: f.key === 'PK' ? 'key-attribute' : 'attribute', style: { ...BASE, shape: 'shape=ellipse' } });
@@ -133,16 +136,40 @@ function tableDiagram(table: Table): Diagram {
 }
 
 await fs.mkdir(out, { recursive: true });
+/** Smallest gap between any two node boxes: the validator's pass/fail says nothing about crowding. */
+function minGapPx(nodes: Array<{ x: number; y: number; width: number; height: number }>): number {
+  let min = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+    const a = nodes[i], b = nodes[j];
+    const gap = Math.max(Math.max(b.x - (a.x + a.width), a.x - (b.x + b.width)), Math.max(b.y - (a.y + a.height), a.y - (b.y + b.height)));
+    if (gap < min) min = gap;
+  }
+  return Number.isFinite(min) ? Math.round(min) : -1;
+}
+
+const forcedDensity = process.argv.find((a) => a.startsWith('--density='))?.split('=')[1] as
+  | 'compact' | 'balanced' | 'spacious' | undefined;
 const suite = [conceptDiagram(), schemaDiagram(), ...tables.map(tableDiagram)];
 const summary: string[] = [];
 for (const model of suite) {
-  const diagram = createDiagram(JSON.parse(JSON.stringify(model)));
-  const layout = await layoutDiagram(diagram, 5);
+  // Crowding does not improve monotonically with the density preset: measured, the
+  // attribute-heavy tables got TIGHTER under spacious (er-3-tool 7px -> 0px). So each
+  // figure picks its own preset by its own minimum gap instead of inheriting one.
+  const candidates: Array<'compact' | 'balanced' | 'spacious'> = forcedDensity ? [forcedDensity] : ['balanced', 'spacious'];
+  let best: { density: string; layout: Awaited<ReturnType<typeof layoutDiagram>>; gap: number } | undefined;
+  for (const density of candidates) {
+    const diagram = createDiagram(JSON.parse(JSON.stringify({ ...model, layout: { ...(model.layout ?? {}), density } })));
+    const layout = await layoutDiagram(diagram, 5);
+    const candidate = { density, layout, gap: minGapPx(layout.nodes) };
+    if (!best || candidate.gap > best.gap) best = candidate;
+  }
+  const { layout, gap } = best;
   const errors = (layout.issues ?? []).filter((i) => i.severity === 'ERROR');
-  await fs.writeFile(path.join(out, `${model.id}.model.json`), JSON.stringify(model, null, 2), 'utf8');
+  await fs.writeFile(path.join(out, `${model.id}.model.json`), JSON.stringify({ ...model, layout: { ...(model.layout ?? {}), density: best.density } }, null, 2), 'utf8');
   await fs.writeFile(path.join(out, `${model.id}.drawio`), renderDrawio(layout), 'utf8');
   await fs.writeFile(path.join(out, `${model.id}.svg`), renderSvg(layout), 'utf8');
-  summary.push(`${model.id.padEnd(22)} ${String(diagram.nodes.length).padStart(2)} 节点 ${Math.round(layout.width)}x${Math.round(layout.height)} iter=${layout.iterations} errors=${errors.length}${errors.length ? ' ' + [...new Set(errors.map((e) => e.code))].join(',') : ''}`);
+  summary.push(`${model.id.padEnd(22)} ${String(layout.nodes.length).padStart(2)} 节点 ${Math.round(layout.width)}x${Math.round(layout.height)} density=${best.density.padEnd(8)} iter=${layout.iterations} errors=${errors.length}${errors.length ? ' ' + [...new Set(errors.map((e) => e.code))].join(',') : ''} minGap=${gap}px`);
 }
+console.log(`out=${out}${forcedDensity ? ` (forced ${forcedDensity})` : ' (per-figure density)'}`);
 console.log(summary.join('\n'));
 console.log(`\nwrote ${suite.length} figures to ${out}`);
