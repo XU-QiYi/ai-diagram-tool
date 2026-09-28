@@ -332,6 +332,8 @@ npm run generate -- --chain "画一个 Chen ER 图。实体：学生、课程；
 
 布局算法是**按图选择**的构图杠杆，写在模型顶层 `layout.algorithm`，取值 `auto | layered | stress | mrtree | radial`（`LAYOUT_ALGORITHMS` 是唯一事实来源，CLI 与 MCP 共用）。留空 `auto` 即沿用图类型默认（mindmap→mrtree，network/chen-er→stress，其余→layered）；`mrtree` 适合树状分支，`stress` 适合力导向网络，`radial` 把 hub 放到中心做环形阅读。已知边界：`radial` 与 Container 同时使用会让子节点落到框外（校验报 `NODE_OUTSIDE_CONTAINER`），在稠密图上还会让同环节点重叠，因此只作为显式选择、不进入任何默认路径。`box` / `rectpacking` 刻意不暴露——实测它们不为边生成任何路由段，交付出来是一堆没有连线路径的框。不在白名单内的算法名会直接抛错，不会被静默降级成 layered。
 
+**直线不再被折成直角。** 一条边若在 ELK 里没有拐点，`.drawio` 会写 `edgeStyle=none`。不加这个覆盖，Draw.io 会拿端点自己重排成直角折线——于是同一个模型 `.drawio` 里是折线、`.svg` 里是直线，而校验器量的那条直线其实根本没被画出来。现在两个渲染口径一致：**校验的是什么线，看到的就是什么线**。带拐点的边仍保留 `<Array as="points">` 与正交路由。
+
 若节点超过 40 个，CLI 会优先按照顶层 Container 自动生成 `main.drawio` 概览和各子系统 `.drawio`；没有 Container 时按稳定节点顺序拆成 `part-1`、`part-2`。每一份同时生成 `.model.json` 和 `.svg`，子图中的原节点/边 ID 不变。用户明确要求单图时设置 `constraints.forceSingle=true`，仍会生成一张图并保留 Layout Warning。
 
 ## 目录与扩展点

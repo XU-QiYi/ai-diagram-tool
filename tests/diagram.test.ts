@@ -502,6 +502,27 @@ test('style.dashed on a node reaches both renderers instead of being dropped', a
   assert.equal((svg.match(/stroke-dasharray/g) ?? []).length, 1, 'exactly the dashed node outline carries the dash pattern in the SVG');
 });
 
+test('a straight route stays straight in the editable file; a routed one keeps its waypoints', async () => {
+  const cellStyle = (xml: string, id: string) => {
+    const start = xml.indexOf(`id="${id}"`);
+    return start < 0 ? '' : xml.slice(start, xml.indexOf('</mxCell>', start));
+  };
+  const chen = await layoutDiagram(chenErDiagram(), 5);
+  const straight = chen.edges.filter(e => e.sections?.length === 1 && !e.sections[0].bendPoints?.length);
+  assert.ok(straight.length > 5, 'this fixture must contain straight links to test');
+  for (const e of straight.slice(0, 5)) {
+    const cell = cellStyle(renderDrawio(chen), e.id);
+    assert.match(cell, /edgeStyle=none;/, `${e.id}: Draw.io would re-bend a straight line without this override`);
+    assert.ok(!cell.includes('<Array as="points">'), `${e.id} must not carry waypoints it does not have`);
+  }
+  const uml = await layoutDiagram(umlClass(), 5);
+  const bent = uml.edges.find(e => (e.sections?.[0]?.bendPoints?.length ?? 0) > 0)!;
+  assert.ok(bent, 'this fixture must contain a routed edge to test');
+  const bentCell = cellStyle(renderDrawio(uml), bent.id);
+  assert.match(bentCell, /<Array as="points">/);
+  assert.ok(!bentCell.includes('edgeStyle=none;'), 'a route with bends must keep orthogonal routing');
+});
+
 test('key roles render the same text in both outputs, and a bad role is refused', async () => {
   const model = (attributes: any[]) => ({
     id: 'keys', title: 'Key roles', type: 'uml-class' as const, direction: 'TOP_TO_BOTTOM' as const,

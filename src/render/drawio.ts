@@ -355,8 +355,12 @@ export function renderDrawio(layout: LayoutResult): string {
       (x) => x.nodeId === e.target,
     )?.identifying;
     const erStyle = identifying ? "dashed=0;strokeWidth=2;" : "";
+    // A route with no bend points is a straight segment. Without this override Draw.io
+    // re-routes it with its own orthogonal elbows, so the editable file would show a
+    // different line than the one ELK produced, the validator checked and the SVG drew.
+    const straightRoute = (e.sections?.length ?? 0) === 1 && !(e.sections?.[0]?.bendPoints?.length);
     cells.push(
-      `<mxCell id="${esc(e.id)}"${rendered} style="${edgeStyle(e.type, e.sourceMultiplicity, e.targetMultiplicity)}${erStyle}strokeColor=${edgeStroke};fontColor=${edgeText};" edge="1" parent="1" source="${esc(e.sourcePort ?? e.source)}" target="${esc(e.targetPort ?? e.target)}">${geometry}</mxCell>`,
+      `<mxCell id="${esc(e.id)}"${rendered} style="${edgeStyle(e.type, e.sourceMultiplicity, e.targetMultiplicity)}${erStyle}${straightRoute ? "edgeStyle=none;" : ""}strokeColor=${edgeStroke};fontColor=${edgeText};" edge="1" parent="1" source="${esc(e.sourcePort ?? e.source)}" target="${esc(e.targetPort ?? e.target)}">${geometry}</mxCell>`,
     );
     if (e.sourceMultiplicity)
       cells.push(
