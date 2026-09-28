@@ -113,7 +113,9 @@ function minGapPx(nodes: Array<{ x: number; y: number; width: number; height: nu
 
 await fs.mkdir(out, { recursive: true });
 const rows: string[] = [];
-for (const model of suite) {
+
+/** Lay a figure out over the candidate settings, keep the best, and write the three files. */
+async function emit(model: Diagram): Promise<number> {
   let best: { label: string; layout: Awaited<ReturnType<typeof layoutDiagram>>; gap: number; score: number } | undefined;
   // uml-class lays out with layered, where direction is honoured; chen-er defaults to the
   // force-directed engine, where direction was measured to change nothing.
@@ -127,7 +129,11 @@ for (const model of suite) {
     const ar = layout.width / layout.height;
     const gap = minGapPx(layout.nodes);
     const errors = (layout.issues ?? []).filter((i) => i.severity === 'ERROR').length;
-    const score = -errors * 1e9 + (ar >= 0.8 && ar <= 1.7 ? 1e6 : 0) + gap;
+    // A textbook 实体图 is a radial star, which the force-directed engine produces; layered
+    // turns the same model into a vertical staircase that still scores "0 errors". Prefer
+    // the star, and only fall back to layered when the star cannot be made clean.
+    const starBonus = model.type === 'chen-er' && algorithm === 'auto' ? 5e8 : 0;
+    const score = -errors * 1e9 + starBonus + (ar >= 0.8 && ar <= 1.7 ? 1e6 : 0) + gap;
     if (!best || score > best.score) best = { label: `${direction}/${algorithm}/${density}`, layout, gap, score };
   }
   const errors = (best.layout.issues ?? []).filter((i) => i.severity === 'ERROR');
@@ -136,8 +142,35 @@ for (const model of suite) {
   await fs.writeFile(path.join(out, `${model.id}.model.json`), JSON.stringify({ ...model, direction: chosen.direction, layout: { ...(model.layout ?? {}), algorithm: chosen.layout?.algorithm, density: chosen.layout?.density } }, null, 2), 'utf8');
   await fs.writeFile(path.join(out, `${model.id}.drawio`), renderDrawio(best.layout), 'utf8');
   await fs.writeFile(path.join(out, `${model.id}.svg`), renderSvg(best.layout), 'utf8');
-  rows.push(`${model.id.padEnd(30)} ${String(best.layout.nodes.length).padStart(2)} 节点 ${Math.round(best.layout.width)}x${Math.round(best.layout.height)} ar=${(best.layout.width / best.layout.height).toFixed(2)} ${best.label.padEnd(20)} errors=${errors.length}${errors.length ? ' [' + [...new Set(errors.map((e) => e.code))].join(',') + ']' : ''} minGap=${best.gap}px 拐点=${bends}`);
+  const ar = best.layout.width / best.layout.height;
+  rows.push(`${model.id.padEnd(30)} ${String(best.layout.nodes.length).padStart(2)} 节点 ${Math.round(best.layout.width)}x${Math.round(best.layout.height)} ar=${ar.toFixed(2)} ${best.label.padEnd(26)} errors=${errors.length}${errors.length ? ' [' + [...new Set(errors.map((e) => e.code))].join(',') + ']' : ''} minGap=${best.gap}px 拐点=${bends}`);
+  return ar;
+}
+
+/**
+ * Figures still pending. A single-entity diagram that comes out as a strip has more
+ * attributes than one canvas can fan out; split them in two rather than ship 600x2020.
+ */
+const pending: Diagram[] = [...suite];
+for (let i = 0; i < pending.length; i++) {
+  const model = pending[i];
+  const ar = await emit(model);
+  const attrs = model.nodes.filter((n) => (n as any).kind?.endsWith('attribute')) as any[];
+  if (model.type === 'chen-er' && (ar < 0.7 || ar > 1.8) && attrs.length > 8 && model.id.endsWith('-entity')) {
+    const half = Math.ceil(attrs.length / 2);
+    [attrs.slice(0, half), attrs.slice(half)].forEach((group, k) => {
+      const clone = JSON.parse(JSON.stringify(model));
+      clone.id = `${model.id}-${k + 1}`;
+      clone.title = `${model.title}（属性 ${k + 1}/2）`;
+      clone.nodes = [{ ...model.nodes.find((n) => (n as any).kind === 'entity') }, ...group];
+      const keep = new Set(group.map((g) => g.id));
+      clone.edges = clone.edges.filter((e: any) => keep.has(e.target));
+      clone.chenEr.attributeIds = group.map((g: any) => g.id);
+      pending.push(clone);
+    });
+    rows.push(`${model.id.padEnd(30)} → 属性过多，已拆成 ${model.id}-1 / ${model.id}-2`);
+  }
 }
 console.log(rows.join('\n'));
-const bad = rows.filter((r) => !r.includes('errors=0')).length;
-console.log(`\n${suite.length} figures -> ${out}；其中 ${suite.length - bad} 张 0 错误，${bad} 张仍有问题。`);
+const bad = rows.filter((r) => /errors=[1-9]/.test(r)).length;
+console.log(`\n${pending.length} figures -> ${out}；${pending.length - bad} 张 0 错误，${bad} 张仍有问题。`);
