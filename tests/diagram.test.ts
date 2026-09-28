@@ -470,6 +470,24 @@ test('spacing violations still get the ladder and converge clean', async () => {
   assert.ok(!r.issues?.some(i => i.severity === 'ERROR'));
 });
 
+test('a node may point at itself, and both renderers really draw the loop', async () => {
+  const diagram = createDiagram({
+    id: 'self-loop', title: 'Self transition', type: 'state-machine', direction: 'LEFT_TO_RIGHT',
+    nodes: [{ id: 'state.draft', label: '草稿', kind: 'state' }, { id: 'state.done', label: '完成', kind: 'state' }],
+    edges: [
+      { id: 'edge.draft-again', source: 'state.draft', target: 'state.draft', type: 'flow', label: '重新填写' },
+      { id: 'edge.finish', source: 'state.draft', target: 'state.done', type: 'flow' },
+    ],
+  });
+  const layout = await layoutDiagram(diagram, 2);
+  assert.ok(!layout.issues?.some(i => i.code === 'SELF_RELATIONSHIP'), 'a self transition is legal structure, not something to judge away');
+  assert.ok(!layout.issues?.some(i => i.code === 'EDGE_UNROUTED'), 'the loop must actually get a route');
+  const self = layout.edges.find(e => e.id === 'edge.draft-again')!;
+  assert.ok((self.sections?.[0]?.bendPoints?.length ?? 0) > 0, 'a loop needs waypoints, not a zero-length line');
+  assert.match(renderDrawio(layout), /id="edge\.draft-again"[\s\S]{0,400}<Array as="points">/);
+  assert.equal((renderSvg(layout).match(/stroke-width="1.5"/g) ?? []).length, 2, 'both edges must appear in the SVG');
+});
+
 test('an unrouted edge is reported by the validator and still drawn by the preview', async () => {
   const laid = await layoutDiagram(layeredArchitecture(), 2);
   // Reached through the validator directly: inside layoutDiagram the vendored fallback

@@ -90,7 +90,9 @@ export function validateSemanticIssues(diagram: Diagram): ValidationIssue[] {
   }
   for (const [index, e] of diagram.edges.entries()) {
     if (!nodes.has(e.source) || !nodes.has(e.target)) error('RELATIONSHIP_MISSING_NODE', `Relationship references missing node: ${e.id}`, e.id, `/edges/${index}`);
-    if (e.source === e.target) error('SELF_RELATIONSHIP', `Self relationship is not allowed by default: ${e.id}`, e.id, `/edges/${index}`);
+    // A node pointing at itself is legal structure (UML self transitions, retry loops,
+    // follow-on relationships). ELK routes it and both renderers draw it, so judging it
+    // away was the tool overstepping - measured before removing, see spec §10 item 3.
   }
   return uniqueIssues(issues);
 }
