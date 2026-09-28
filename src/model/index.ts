@@ -26,6 +26,8 @@ export const ALLOWED_SHAPES = new Set([
   'note',
   'swimlane',
 ]);
+/** Legal `ClassAttribute.key` roles; anything else must fail rather than render «BOGUS». */
+export const KEY_ROLES = new Set(['PK', 'FK', 'UK']);
 const SHAPE_OPTIONS: Record<string, RegExp> = {
   rounded: /^[01]$/,
   double: /^[01]$/,
@@ -81,6 +83,10 @@ export function createDiagram(input: Omit<Diagram, 'nodes' | 'edges'> & { nodes?
   const cellIds=new Set<string>(); const reserve=(id:string,kind:string)=>{if(cellIds.has(id))throw new Error(`Duplicate stable id (${kind}): ${id}`);cellIds.add(id);};
   for(const n of nodes){reserve(n.id,'node');for(const p of n.ports??[])reserve(p.id,'port');}
   const nodeById = new Map(nodes.map(node => [node.id, node]));
+  for (const n of nodes)
+    for (const a of n.classMeta?.attributes ?? [])
+      if (a.key !== undefined && !KEY_ROLES.has(a.key))
+        throw new Error(`Invalid attribute key role "${String(a.key)}" on ${n.id}.${a.name}: expected PK, FK or UK`);
   for(const e of edges){
     reserve(e.id,'edge');
     if (!nodeById.has(e.source)) throw new Error(`Edge ${e.id} references missing node: ${e.source}`);

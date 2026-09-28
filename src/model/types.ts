@@ -17,7 +17,8 @@ export interface Provenance { source: 'request' | 'document' | 'image' | 'templa
 
 export interface Style { fill?: string; stroke?: string; text?: string; shape?: string; dashed?: boolean; rounded?: boolean; opacity?: number; fontSize?: number; strokeWidth?: number; lineHeight?: number; paddingX?: number; minWidth?: number; minHeight?: number; }
 export interface Port { id: string; side?: 'NORTH' | 'SOUTH' | 'EAST' | 'WEST'; label?: string; kind?: 'input' | 'output' | 'provided' | 'required'; width?: number; height?: number; }
-export interface ClassAttribute { name: string; type?: string; visibility?: Visibility; multiplicity?: string; defaultValue?: string; isStatic?: boolean; }
+export type AttributeKey = 'PK' | 'FK' | 'UK';
+export interface ClassAttribute { name: string; type?: string; visibility?: Visibility; multiplicity?: string; defaultValue?: string; isStatic?: boolean; /** Database key role: primary / foreign / unique. Rendered as a «PK» marker, and PK names are underlined. */ key?: AttributeKey; }
 export interface ClassOperation { name: string; returnType?: string; visibility?: Visibility; parameters?: Array<{ name: string; type?: string; }>; isAbstract?: boolean; isStatic?: boolean; }
 export interface ClassMeta { stereotype?: string; typeParameters?: string[]; attributes?: ClassAttribute[]; operations?: ClassOperation[]; }
 export interface StateBehavior { entry?: string; do?: string; exit?: string; }

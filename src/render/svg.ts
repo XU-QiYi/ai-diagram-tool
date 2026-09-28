@@ -3,7 +3,7 @@ import type {
   LayoutNode,
   RelationshipType,
 } from "../model/types.js";
-import { nodeTextLines } from "../utils/text.js";
+import { keyMarker, nodeTextLines } from "../utils/text.js";
 const esc = (s: string) =>
   s
     .replace(/&/g, "&amp;")
@@ -40,6 +40,16 @@ function markers(
     return `marker-start="url(#${erSvg(sourceMultiplicity)})" marker-end="url(#${erSvg(targetMultiplicity)})"`;
   return 'marker-end="url(#arrow)"';
 }
+
+/**
+ * `style.dashed` on a node has to reach the picture in both renderers, not just sit in
+ * the model. Labels stay solid - only the outline is dashed.
+ */
+function dashedNode(shape: string, n: LayoutNode): string {
+  if (!n.style?.dashed) return shape;
+  return shape.replace(/ stroke="/g, ' stroke-dasharray="6 4" stroke="');
+}
+
 export function renderSvg(layout: LayoutResult): string {
   if (layout.diagram.type === "sequence") return renderSequenceSvg(layout);
   const pad = layout.diagram.layout?.svgPad ?? 80,
@@ -185,7 +195,7 @@ export function renderSvg(layout: LayoutResult): string {
         renderedText = `<text x="${cx}" y="${startY}" text-anchor="middle" text-decoration="underline" font-family="Arial" font-size="${n.style?.fontSize ?? 14}" fill="${n.style?.text ?? defaults.text}">${text}</text>`;
       if (layout.diagram.type === "uml-class" && n.classMeta) {
         const headerLines = [n.classMeta.stereotype ? `&lt;&lt;${esc(n.classMeta.stereotype)}&gt;&gt;` : "", `${esc(n.label)}${n.classMeta.typeParameters?.length ? `&lt;${esc(n.classMeta.typeParameters.join(", "))}&gt;` : ""}`].filter(Boolean);
-        const attrs = (n.classMeta.attributes ?? []).map(a => `${a.visibility ?? ""}${esc(a.name)}${a.type ? `: ${esc(a.type)}` : ""}${a.multiplicity ? ` [${esc(a.multiplicity)}]` : ""}${a.defaultValue !== undefined ? ` = ${esc(a.defaultValue)}` : ""}`);
+        const attrs = (n.classMeta.attributes ?? []).map(a => `${keyMarker(a.key)}${a.visibility ?? ""}${esc(a.name)}${a.type ? `: ${esc(a.type)}` : ""}${a.multiplicity ? ` [${esc(a.multiplicity)}]` : ""}${a.defaultValue !== undefined ? ` = ${esc(a.defaultValue)}` : ""}`);
         const ops = (n.classMeta.operations ?? []).map(o => `${o.visibility ?? ""}${esc(o.name)}(${(o.parameters ?? []).map(p => `${esc(p.name)}${p.type ? `: ${esc(p.type)}` : ""}`).join(", ")}): ${esc(o.returnType ?? "void")}`);
         const headerBottom = n.y + pad + 10 + headerLines.length * lineHeight;
         const attrBottom = headerBottom + (attrs.length ? 10 + attrs.length * lineHeight : 0);
@@ -196,7 +206,7 @@ export function renderSvg(layout: LayoutResult): string {
         const dividerY = n.y + pad + 34;
         renderedText = `<text x="${cx}" y="${n.y + pad + 22}" text-anchor="middle" font-family="Arial" font-size="${n.style?.fontSize ?? 14}" font-weight="bold" fill="${n.style?.text ?? defaults.text}">${esc(n.label)}</text><line x1="${n.x + pad}" y1="${dividerY}" x2="${n.x + pad + n.width}" y2="${dividerY}" stroke="${stroke}"/>${stateLines.map((line, i) => `<text x="${n.x + pad + 10}" y="${dividerY + 20 + i * lineHeight}" font-family="Arial" font-size="${n.style?.fontSize ?? 14}" fill="${n.style?.text ?? defaults.text}">${line}</text>`).join("")}`;
       }
-      return `<g>${shape}${renderedText}</g>`;
+      return `<g>${dashedNode(shape, n)}${renderedText}</g>`;
     })
     .join("");
   const portShapes = layout.nodes

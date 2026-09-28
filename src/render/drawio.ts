@@ -5,6 +5,7 @@ import type {
   RelationshipType,
 } from "../model/types.js";
 import { ALLOWED_SHAPES } from "../model/index.js";
+import { keyMarker } from "../utils/text.js";
 
 /**
  * The model layer accepts `style.shape` as either `cylinder` or `shape=cylinder`, but
@@ -54,7 +55,7 @@ function nodeLabel(n: LayoutNode, type: string) {
       const mult = a.multiplicity ? ` [${esc(a.multiplicity)}]` : "";
       const defaultValue =
         a.defaultValue !== undefined ? ` = ${esc(a.defaultValue)}` : "";
-      return `${vis}${name}${type}${mult}${defaultValue}`;
+      return `${keyMarker(a.key)}${vis}${name}${type}${mult}${defaultValue}`;
     })
     .join("&lt;br&gt;");
 
@@ -269,7 +270,7 @@ function nodeStyle(
   const text =
     theme.text ??
     (n.kind === "start" || n.kind === "end" ? "#FFFFFF" : defaults.text);
-  return `whiteSpace=wrap;html=1;${shape};${extra}fillColor=${fill};strokeColor=${stroke};fontColor=${text};fontSize=${theme.fontSize ?? 14};strokeWidth=${theme.strokeWidth ?? 1};spacing=8;`;
+  return `whiteSpace=wrap;html=1;${shape};${extra}fillColor=${fill};strokeColor=${stroke};fontColor=${text};fontSize=${theme.fontSize ?? 14};strokeWidth=${theme.strokeWidth ?? 1};spacing=8;${n.style?.dashed ? "dashed=1;" : ""}`;
 }
 export function renderDrawio(layout: LayoutResult): string {
   if (layout.diagram.type === "sequence") return renderSequenceDrawio(layout);

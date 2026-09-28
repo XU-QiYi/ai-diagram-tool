@@ -488,6 +488,45 @@ test('a node may point at itself, and both renderers really draw the loop', asyn
   assert.equal((renderSvg(layout).match(/stroke-width="1.5"/g) ?? []).length, 2, 'both edges must appear in the SVG');
 });
 
+test('style.dashed on a node reaches both renderers instead of being dropped', async () => {
+  const diagram = createDiagram({
+    id: 'dashed-node', title: 'Dashed node', type: 'system-architecture', direction: 'LEFT_TO_RIGHT',
+    nodes: [{ id: 'node.solid', label: 'Solid' }, { id: 'node.dashed', label: 'Neighbour', style: { dashed: true } }],
+    edges: [{ id: 'edge.solid-dashed', source: 'node.solid', target: 'node.dashed' }],
+  });
+  const layout = await layoutDiagram(diagram, 2);
+  const xml = renderDrawio(layout);
+  const svg = renderSvg(layout);
+  assert.match(/id="node\.dashed"[^>]*/.exec(xml)![0], /dashed=1/);
+  assert.doesNotMatch(/id="node\.solid"[^>]*/.exec(xml)![0], /dashed=1/);
+  assert.equal((svg.match(/stroke-dasharray/g) ?? []).length, 1, 'exactly the dashed node outline carries the dash pattern in the SVG');
+});
+
+test('key roles render the same text in both outputs, and a bad role is refused', async () => {
+  const model = (attributes: any[]) => ({
+    id: 'keys', title: 'Key roles', type: 'uml-class' as const, direction: 'TOP_TO_BOTTOM' as const,
+    nodes: [
+      { id: 'class.tool', label: '工具', classMeta: { attributes } },
+      { id: 'class.category', label: '分类', classMeta: { attributes: [{ name: 'category_id', type: 'BIGINT', key: 'PK' }] } },
+    ],
+    edges: [{ id: 'edge.tool-category', source: 'class.tool', target: 'class.category', type: 'association' as const }],
+  });
+  const fields = [
+    { name: 'tool_id', type: 'BIGINT', key: 'PK' },
+    { name: 'category_id', type: 'BIGINT', key: 'FK' },
+    { name: 'name', type: 'VARCHAR(128)', key: 'UK' },
+  ];
+  const layout = await layoutDiagram(createDiagram(model(fields) as any), 2);
+  assert.ok(!layout.issues?.some(i => i.code === 'TEXT_OVERFLOW'), 'the box must be sized for the marker it prints');
+  const xml = renderDrawio(layout);
+  const svg = renderSvg(layout);
+  for (const marker of ['«PK»tool_id', '«FK»category_id', '«UK»name']) {
+    assert.ok(xml.includes(marker), `drawio is missing ${marker}`);
+    assert.ok(svg.includes(marker), `svg is missing ${marker} - the two renderers must not disagree`);
+  }
+  assert.throws(() => createDiagram(model([{ name: 'x', type: 'INT', key: 'BOGUS' }]) as any), /Invalid attribute key role/);
+});
+
 test('an unrouted edge is reported by the validator and still drawn by the preview', async () => {
   const laid = await layoutDiagram(layeredArchitecture(), 2);
   // Reached through the validator directly: inside layoutDiagram the vendored fallback

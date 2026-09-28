@@ -1,4 +1,9 @@
-import type { DiagramType, Node } from '../model/types.js';
+import type { AttributeKey, DiagramType, Node } from '../model/types.js';
+
+/** The key-role marker shared by the measurer and both renderers, so a box can never be sized for text one of them does not draw. */
+export function keyMarker(key?: AttributeKey): string {
+  return key ? `\u00ab${key}\u00bb` : '';
+}
 
 function glyphUnits(text: string): number {
   return [...text].reduce((sum, char) => sum + (/[^\u0000-\u00ff]/.test(char) ? 1 : /[A-Z0-9]/.test(char) ? 0.66 : 0.56), 0);
@@ -13,7 +18,7 @@ export function nodeTextLines(node: Node, type: DiagramType): string[] {
   if (type !== 'uml-class' || !node.classMeta) return lines;
   const meta = node.classMeta;
   const name = `${meta.stereotype ? `<<${meta.stereotype}>> ` : ''}${node.label}${meta.typeParameters?.length ? `<${meta.typeParameters.join(', ')}>` : ''}`;
-  const attributes = (meta.attributes ?? []).map(a => `${a.visibility ?? ''}${a.name}${a.type ? `: ${a.type}` : ''}${a.multiplicity ? ` [${a.multiplicity}]` : ''}${a.defaultValue ? ` = ${a.defaultValue}` : ''}`);
+  const attributes = (meta.attributes ?? []).map(a => `${keyMarker(a.key)}${a.visibility ?? ''}${a.name}${a.type ? `: ${a.type}` : ''}${a.multiplicity ? ` [${a.multiplicity}]` : ''}${a.defaultValue ? ` = ${a.defaultValue}` : ''}`);
   const operations = (meta.operations ?? []).map(o => `${o.visibility ?? ''}${o.name}(${(o.parameters ?? []).map(p => `${p.name}${p.type ? `: ${p.type}` : ''}`).join(', ')}): ${o.returnType ?? 'void'}`);
   return [name, ...attributes, ...operations];
 }
