@@ -86,7 +86,7 @@ function fullErDiagram(): Diagram {
   const relNodes = rels.map(([id, label]) => relationshipNode(id, label));
   const nodes: Node[] = [...entityNodes, ...attrNodes, ...relNodes];
   const edges: Edge[] = [
-    ...attrs.map(([e, a]) => assoc(`aedge.${e}`, `entity.${e}`, `attribute.${e}.0`)),
+    ...attrs.map(([e]) => assoc(`aedge.${e}`, `entity.${e}`, `attribute.${e}.0`)),
     ...rels.flatMap(([id, , s, t, sc, tc]) => [
       assoc(`re.${id}.s`, `entity.${s}`, `relationship.${id}`, sc),
       assoc(`re.${id}.t`, `relationship.${id}`, `entity.${t}`, tc),

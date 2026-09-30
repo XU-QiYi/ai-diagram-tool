@@ -47,7 +47,9 @@ const ALLOWED_SIZE_HINTS = new Set(['width', 'height']);
 function scan(value: unknown, path: string, findings: string[], depth = 0): void {
   if (depth > 12 || findings.length > 20) return;
   if (Array.isArray(value)) {
-    value.forEach((item, index) => scan(item, `${path}/${index}`, findings, depth + 1));
+    value.forEach((item, index) => {
+      scan(item, `${path}/${index}`, findings, depth + 1);
+    });
     return;
   }
   if (value === null || typeof value !== 'object') return;

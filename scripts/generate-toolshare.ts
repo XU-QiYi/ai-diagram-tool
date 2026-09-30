@@ -11,7 +11,6 @@ const blackWhite: Style = { fill: '#FFFFFF', stroke: '#000000', text: '#000000',
 const actorStyle: Style = { ...blackWhite, shape: 'shape=umlActor' };
 const boxStyle: Style = { ...blackWhite, shape: 'rounded=1' };
 const decisionStyle: Style = { ...blackWhite, shape: 'rhombus' };
-const dbStyle: Style = { ...blackWhite, shape: 'shape=cylinder' };
 
 // 节点尺寸按「打印可读」口径收敛：文档内显示宽 15cm，逻辑宽控制在 ~750px 内，
 // 使 14px 字号打印后约 8-10pt（与旧版文档图一致）。
@@ -19,7 +18,6 @@ const node = (id: string, label: string, kind = 'process', style: Style = boxSty
 const flowNode = (id: string, label: string, kind = 'process', style: Style = boxStyle, width = 150, height = 46): Node => ({ id, label, kind, style, width, height });
 const edge = (id: string, source: string, target: string, label?: string, type: Edge['type'] = 'flow'): Edge => ({ id, source, target, label, type, style: blackWhite });
 const uc = (id: string, label: string): Node => node(id, label, 'usecase', { ...blackWhite, shape: 'ellipse' }, 180, 60);
-const db = (id: string, label: string, width = 140): Node => node(id, label, 'database', dbStyle, width, 78);
 const big: Style = { ...blackWhite, fontSize: 20 };
 const bigBox: Style = { ...big, shape: 'rounded=1' };
 const bigDb: Style = { ...big, shape: 'shape=cylinder' };

@@ -1,0 +1,61 @@
+name: CI
+
+# 一键跑完 lint + build + test + examples + 错误码一致性。
+# 对应 AGENTS.md §28 的 Definition of Done 中可机器验证的那几条。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 取消同分支上被新提交取代的旧 run
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: lint + build + test + examples
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # lint 只查代码问题，不查格式——格式化是单独一次提交（见 biome.json 的说明）。
+      # 全仓 format 一旦应用，把这一行换成 `biome ci` 即可同时守住格式。
+      - name: Lint
+        run: npx biome lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      # 重新生成示例并确认与仓库内已提交的版本逐字节一致：
+      # 示例是文档与回归基线的一部分，悄悄漂移比测试失败更危险。
+      - name: Examples match committed artifacts
+        run: |
+          npm run examples -- --out .ci-examples
+          npx tsx scripts/verify-examples.ts .ci-examples examples
+
+      # 错误码文档与源码不一致时失败（scripts/generate-error-codes.ts --check）
+      - name: Error-code doc in sync
+        run: npm run error-codes -- --check
+
+      # Golden-image 门禁需要真实 renderer（draw.io Desktop），CI runner 上没有——
+      # 脚本会显式跳过并说明原因，而不是静默通过。本地与带 renderer 的 runner 才跑。
+      - name: Visual golden gate (skip when no renderer)
+        run: |
+          sudo apt-get install -y draw.io 2>/dev/null \
+            || echo "::warning::draw.io Desktop unavailable; the golden-image gate is skipped, not passed"
+          npm run visual-gate

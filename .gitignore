@@ -3,4 +3,5 @@ dist/
 .loop-tmp/
 .playwright-cli/
 output/
+.ci-examples/
 *.log

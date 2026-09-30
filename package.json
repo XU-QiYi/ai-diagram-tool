@@ -3,14 +3,23 @@
   "version": "1.0.0",
   "private": true,
   "description": "AI → Diagram Model → ELK.js → Draw.io automatic diagram generator",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "tsx --test tests/*.test.ts",
+    "lint": "biome lint",
+    "lint:fix": "biome lint --write",
+    "format": "biome format --write",
+    "format:check": "biome format --max-diagnostics=300",
+    "verify": "npm run lint && npm run build && npm test && npm run error-codes -- --check",
     "diagram": "tsx src/cli.ts",
     "generate": "tsx src/cli.ts",
     "examples": "tsx src/cli.ts --examples",
     "mcp": "tsx src/mcp/server.ts",
+    "error-codes": "tsx scripts/generate-error-codes.ts",
+    "demo": "node examples/adapter/demo.mjs",
+    "visual-gate": "tsx scripts/visual-gate.ts",
     "generate:toolshare": "tsx scripts/generate-toolshare.ts",
     "generate:architecture-report": "tsx scripts/generate-architecture-report.ts"
   },
@@ -20,6 +29,7 @@
     "pdfjs-dist": "^6.3.289"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
     "@types/node": "^22.10.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

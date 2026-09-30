@@ -33,12 +33,12 @@ function splitList(value: string): string[] {
 function parseAttribute(raw: string): Omit<ParsedAttribute, 'entity'> | undefined {
   let label = cleanLabel(raw);
   let kind: ParsedAttribute['kind'] = 'attribute';
-  if (/^(?:PK|主键)\s*/i.test(label) || /[（(\[]\s*(?:PK|主键)\s*[）)\]]$/i.test(label)) kind = 'key-attribute';
-  else if (/^(?:多值)\s*/.test(label) || /[（(\[]\s*多值\s*[）)\]]$/.test(label)) kind = 'multivalued-attribute';
-  else if (/^(?:派生)\s*/.test(label) || /[（(\[]\s*派生\s*[）)\]]$/.test(label)) kind = 'derived-attribute';
+  if (/^(?:PK|主键)\s*/i.test(label) || /[（([]\s*(?:PK|主键)\s*[）)\]]$/i.test(label)) kind = 'key-attribute';
+  else if (/^(?:多值)\s*/.test(label) || /[（([]\s*多值\s*[）)\]]$/.test(label)) kind = 'multivalued-attribute';
+  else if (/^(?:派生)\s*/.test(label) || /[（([]\s*派生\s*[）)\]]$/.test(label)) kind = 'derived-attribute';
   label = label
     .replace(/^(?:PK|主键|多值|派生)\s*/i, '')
-    .replace(/[（(\[]\s*(?:PK|主键|多值|派生)\s*[）)\]]$/i, '')
+    .replace(/[（([]\s*(?:PK|主键|多值|派生)\s*[）)\]]$/i, '')
     .trim();
   return label ? { label, kind } : undefined;
 }

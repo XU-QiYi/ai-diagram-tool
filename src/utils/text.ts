@@ -6,7 +6,15 @@ export function keyMarker(key?: AttributeKey): string {
 }
 
 function glyphUnits(text: string): number {
-  return [...text].reduce((sum, char) => sum + (/[^\u0000-\u00ff]/.test(char) ? 1 : /[A-Z0-9]/.test(char) ? 0.66 : 0.56), 0);
+  // Code point > U+00FF counts as one full glyph (CJK and friends); Latin-1 characters are
+  // narrower, and capitals/digits slightly wider than lowercase. Written as a numeric
+  // comparison rather than /[^\u0000-\u00ff]/ so the range does not start at a control
+  // character, which reads like a mistake even though it was deliberate.
+  return [...text].reduce((sum, char) => {
+    const code = char.codePointAt(0) ?? 0;
+    if (code > 0xff) return sum + 1;
+    return sum + (/[A-Z0-9]/.test(char) ? 0.66 : 0.56);
+  }, 0);
 }
 
 export function nodeTextLines(node: Node, type: DiagramType): string[] {
