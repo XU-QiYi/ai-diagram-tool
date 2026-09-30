@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { exampleDiagrams } from './diagram-types/examples.js';
 import { createDiagramFromRequest } from './diagram-types/index.js';
 import { layoutDiagram } from './layout/elk.js';
-import { renderDrawio, renderSvg } from './render/index.js';
+import { renderDrawio, renderDrawioMultiPage, renderSvg } from './render/index.js';
 import type { Diagram } from './model/types.js';
 import type { QualityReport, VisualQualitySection } from './ai/types.js';
 import { splitLargeDiagram } from './pipeline/index.js';
@@ -85,10 +85,30 @@ async function writeSingle(diagram: Diagram, dir: string, fileBase = diagram.id,
 async function writeDiagram(diagram: Diagram, dir: string, strict = false) {
   const parts = splitLargeDiagram(diagram);
   let exitCode = 0;
+  const rendered: Array<{ drawio: string; name: string }> = [];
   for (const part of parts) {
-    exitCode = Math.max(exitCode, await writeSingle(part.diagram, dir, parts.length === 1 ? diagram.id : part.name, strict));
+    const { layout, report } = await layoutAndReport(part.diagram);
+    const drawio = renderDrawio(layout);
+    rendered.push({ drawio, name: part.name });
+    const svg = renderSvg(layout);
+    const renderIssues = validateRenderOutputs(layout, drawio, svg);
+    await fs.mkdir(dir, { recursive: true });
+    const fileBase = parts.length === 1 ? diagram.id : part.name;
+    await fs.writeFile(path.join(dir, `${fileBase}.model.json`), JSON.stringify(part.diagram, null, 2));
+    await fs.writeFile(path.join(dir, `${fileBase}.drawio`), drawio);
+    await fs.writeFile(path.join(dir, `${fileBase}.svg`), svg);
+    if (layout.warnings.length) console.warn(`[Layout Warning] ${part.diagram.id}: ${layout.warnings.join('; ')}`);
+    if (renderIssues.length) console.error(`[Render Error] ${part.diagram.id}: ${renderIssues.map(issue => issue.message).join('; ')}`);
+    console.log(`Generated ${part.diagram.id} (${layout.nodes.length} nodes, ${layout.edges.length} edges, ${layout.iterations} iteration(s))`);
+    if (strict && (!report.valid || renderIssues.some(issue => issue.severity === 'ERROR'))) exitCode = Math.max(exitCode, 1);
   }
-  if (parts.length > 1) console.log(`Split ${diagram.id} into ${parts.length} editable diagrams: ${parts.map(p => p.name).join(', ')}`);
+  if (parts.length > 1) {
+    // One multi-page .drawio next to the separate files: each part becomes a page with
+    // its own id and name, so a reviewer can address a single figure of the suite via
+    // rasterizeForReview({ page }) instead of re-rendering all of them.
+    await fs.writeFile(path.join(dir, `${diagram.id}.multipage.drawio`), renderDrawioMultiPage(rendered));
+    console.log(`Split ${diagram.id} into ${parts.length} editable diagrams: ${parts.map(p => p.name).join(', ')} (+ ${diagram.id}.multipage.drawio)`);
+  }
   return exitCode;
 }
 async function loadInput(file: string | undefined): Promise<Diagram> { if (!file) throw new Error('A .model.json input path is required'); return loadDiagramModel(path.resolve(file)); }

@@ -404,17 +404,47 @@ export function renderDrawio(layout: LayoutResult): string {
     cells.push(
       `<mxCell id="legend" value="Legend" style="swimlane;html=1;horizontal=1;startSize=32;fillColor=#FFFFFF;strokeColor=#94A3B8;fontStyle=1;collapsible=0;" vertex="1" parent="1"><mxGeometry x="${lx}" y="${ly}" width="${lw}" height="${lh}" as="geometry"/></mxCell>`,
     );
-    entries.forEach(([label, style], i) =>
+    for (const [i, [label, style]] of entries.entries()) {
       cells.push(
         `<mxCell id="legend.item.${i + 1}" value="${label}" style="${style};whiteSpace=wrap;html=1;fontSize=11;" vertex="1" parent="legend"><mxGeometry x="15" y="${42 + i * 34}" width="180" height="24" as="geometry"/></mxCell>`,
-      ),
-    );
+      );
+    }
     extraMaxX = Math.max(extraMaxX, lx + lw);
     extraMaxY = Math.max(extraMaxY, ly + lh);
   }
   const width = Math.ceil(Math.max(layout.width + pad * 2, extraMaxX + pad)),
     height = Math.ceil(Math.max(layout.height + pad * 2, extraMaxY + pad));
   return `<?xml version="1.0" encoding="UTF-8"?><mxfile host="app.diagrams.net"><diagram id="${esc(layout.diagram.id)}" name="${esc(layout.diagram.title)}"><mxGraphModel dx="${width}" dy="${height}" grid="1" gridSize="10" page="1" pageWidth="${width}" pageHeight="${height}"><root>${cells.join("")}</root></mxGraphModel></diagram></mxfile>`;
+}
+
+/**
+ * Merges already-rendered single-page diagrams into one multi-page `.drawio`.
+ *
+ * Page order in the returned file is the order of `pages`, which is the order draw.io
+ * numbers them in: `rasterizeForReview({ page: N })` with `-p N` rasterizes the Nth
+ * `<diagram>` element (1-based, verified in png.ts against a real two-page file). Each
+ * page keeps its own id, name and page dimensions, so a reviewer can address one figure
+ * of a suite — a thesis ER set, for example — without re-rendering the others.
+ *
+ * Pages must come from `renderDrawio` so every one of them carries the same structure
+ * checks the single-page path applies; this function only rewraps the `<diagram>`
+ * elements and refuses anything that does not look like one.
+ */
+export function renderDrawioMultiPage(pages: Array<{ drawio: string; id?: string; name?: string }>): string {
+  const diagrams = pages.map((page, index) => {
+    const match = page.drawio.match(/<diagram\b[^>]*>[\s\S]*?<\/diagram>/);
+    if (!match) {
+      throw new Error(
+        `renderDrawioMultiPage: page ${index + 1} carries no <diagram> element — ` +
+        "every page must come from renderDrawio, which emits exactly one. " +
+        "Rewrapping arbitrary XML would skip the render-honesty checks the single-page path applies.",
+      );
+    }
+    const id = page.id ?? page.drawio.match(/<diagram[^>]*\bid="([^"]*)"/)?.[1] ?? `page-${index + 1}`;
+    const name = page.name ?? page.drawio.match(/<diagram[^>]*\bname="([^"]*)"/)?.[1] ?? `Page ${index + 1}`;
+    return `<diagram id="${esc(id)}" name="${esc(name)}">${match[0].replace(/^<diagram\b[^>]*>/, "").replace(/<\/diagram>$/, "")}</diagram>`;
+  });
+  return `<?xml version="1.0" encoding="UTF-8"?><mxfile host="app.diagrams.net">${diagrams.join("")}</mxfile>`;
 }
 
 function renderSequenceDrawio(layout: LayoutResult): string {
