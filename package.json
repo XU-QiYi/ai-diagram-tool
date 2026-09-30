@@ -17,6 +17,8 @@
     "generate": "tsx src/cli.ts",
     "examples": "tsx src/cli.ts --examples",
     "mcp": "tsx src/mcp/server.ts",
+    "mcp:http": "tsx src/mcp/server.ts --http",
+    "coverage": "tsx --test --experimental-test-coverage tests/*.test.ts",
     "error-codes": "tsx scripts/generate-error-codes.ts",
     "demo": "node examples/adapter/demo.mjs",
     "visual-gate": "tsx scripts/visual-gate.ts",

@@ -104,6 +104,28 @@ export function resolveWorkspaceRoot(value: string | undefined): string {
 async function main(): Promise<void> {
   const root = resolveWorkspaceRoot(process.env.DIAGRAM_MCP_ROOT);
   debug(`serving ${SERVER_INFO.name} with workspace root ${root}`);
+  // Streamable HTTP mode: `--http` or a DIAGRAM_MCP_HTTP_PORT env switches this entry
+  // point from the stdio loop to an HTTP endpoint; both share the same dispatcher.
+  const wantsHttp = process.argv.includes('--http') || process.env.DIAGRAM_MCP_HTTP_PORT !== undefined;
+  if (wantsHttp) {
+    const { startHttpServer } = await import('./http.js');
+    const port = Number(process.env.DIAGRAM_MCP_HTTP_PORT ?? 3000);
+    if (!Number.isInteger(port) || port < 0 || port > 65535) {
+      throw new Error(`DIAGRAM_MCP_HTTP_PORT "${process.env.DIAGRAM_MCP_HTTP_PORT}" is not a valid port number.`);
+    }
+    const host = process.env.DIAGRAM_MCP_HTTP_HOST ?? '127.0.0.1';
+    const allowedOrigins = (process.env.DIAGRAM_MCP_HTTP_ORIGIN ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const server = await startHttpServer({ workspaceRoot: root, host, port, allowedOrigins, log: debug });
+    const address = server.address();
+    const shown = typeof address === 'object' && address !== null ? `${address.address}:${address.port}` : String(port);
+    debug(`MCP endpoint listening on http://${shown}${'/mcp'}`);
+    debug('security: Origin header validated, Host header validated, bound to the address above only.');
+    debug('set DIAGRAM_MCP_HTTP_HOST=0.0.0.0 to expose it beyond this machine — only with DIAGRAM_MCP_HTTP_ORIGIN set to the origins you trust.');
+    return;
+  }
   const lines = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
   // Serialize tool calls: concurrent ELK runs would interleave their logs and
   // fight over the same output files.
@@ -146,4 +168,5 @@ if (isDirectRun) {
   });
 }
 
-export { SERVER_INSTRUCTIONS, SERVER_INFO, handleRequest, main };
+export { SERVER_INSTRUCTIONS, SERVER_INFO, SUPPORTED_PROTOCOLS, handleRequest, main };
+export const jsonRpcFailure = failure;
