@@ -778,6 +778,9 @@ Git 应管理：
 - tests
 - AGENTS.md
 - README.md
+- CHANGELOG.md
+- LICENSE / NOTICE
+- CI 配置（`.github/workflows/`）与 lint 配置
 
 不要提交：
 
@@ -829,6 +832,9 @@ Codex Agent 执行任务时：
 -  CLI 可以运行
 -  Examples 可以生成
 -  Tests 可以运行
+-  Lint 与 format 检查干净
+-  CI 可以一键跑完 lint + build + test + examples
+-  错误码文档与源码一致（`generate-error-codes --check` 通过）
 -  README 完整
 -  没有核心功能 TODO
 
@@ -849,3 +855,46 @@ Codex Agent 执行任务时：
 始终遵循：
 
 > **LLM 负责语义，DSL 负责结构，ELK 负责布局，Renderer 负责格式，Validator 负责质量，Git 负责历史。**
+
+------
+
+## 30. Documentation Source of Truth
+
+文档只有一份事实源，按问题分工：
+
+| 你想知道 | 去哪查 |
+|---|---|
+| 怎么用、有哪些入口和参数 | `README.md` |
+| 架构约束、不可违反的规则 | `AGENTS.md`（本文件） |
+| 发生过什么变更、有哪些破坏性变更 | `CHANGELOG.md` |
+| 现在做到哪了、接下来做什么 | `docs/ROADMAP.md` |
+| 某个错误码是什么意思、什么严重度 | `docs/ERROR_CODES.md` |
+| 某个设计取舍当时为什么这么定 | `docs/superpowers/specs/` |
+
+规则：
+
+1. **阶段性报告不是文档。** 每完成一个阶段写进 `CHANGELOG.md`，不要新建
+   `XXX_REPORT.md` / `XXX_SUMMARY.md` / `PROGRESS.md`。这类文件会在下一次重构后
+   立刻过期，且过期后仍然看起来像权威——本项目已经为此付过一次代价，
+   5 份旧报告连同其中失效的命令、测试数和凭空造出的指标（「UML 符合度 79%」、
+   「覆盖率 ~85%」）一起归档在 `docs/archive/`，失效清单见该目录 `README.md`。
+2. **不写没有出处的数字。** 任何百分比、耗时、覆盖率、符合度都必须附上复现命令；
+   没有评测脚本就没有这个指标。
+3. **归档内容不做后续修正。** 发现新的失效条目就在 `docs/archive/README.md` 补一句，
+   不去改原文，否则历史快照会变成半新半旧、两边都不可信。
+4. **改了行为就改文档。** 用户可见行为的变更必须同一次提交里更新 `README.md`
+   与 `CHANGELOG.md`；破坏性变更必须显式标注并给出迁移路径。
+
+------
+
+## 31. Stable Error Codes
+
+错误码是对外 API 的一部分，调用方按码分支，不按提示语分支。
+
+- 码必须是**手写常量**，禁止从 message 文本用正则派生。改措辞不得改变码。
+  （`src/validate/uml-rules.ts` 曾这么做，已在 2026-09-29 修掉。）
+- 新增码必须同时：登记进该模块的码常量表、在 `docs/ERROR_CODES.md` 补一行描述。
+  `scripts/generate-error-codes.ts --check` 会在源码与文档不一致时失败，CI 跑它。
+- 码的严重度不是固定的，随 `layout.profile` 变化（见 §13 补注）；文档里必须写清
+  该码在 `ai-led` 与 `strict` 两档下分别是什么严重度、是否触发重排。
+- 错误信息仍须满足 §24：说清 what / where / why / possible solution。

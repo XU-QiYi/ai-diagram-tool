@@ -9,6 +9,7 @@ AI 负责把自然语言、文档或图片转换成 Diagram Model；ELK.js 负�
 | 你想要的 | 走哪条路 | 需要模型吗 |
 |---|---|---|
 | 说一句自然语言出图、丢一张图让它看懂并复述 | 宿主 agent 产出 Diagram Model：`--emit-plan` → 你的模型作答 → `--plan`（MCP：`diagram_plan_request` / `diagram_plan_submit`） | 需要，由调用方提供 |
+| 一条命令跑通上面整个闭环 | `npm run demo`（`examples/adapter/` 下的 reference adapter：设了 `DIAGRAM_ADAPTER_API_KEY` 走 OpenAI 兼容模型，没设走离线 mock） | 需要，或用离线 mock 不需要 |
 | 固定格式快速出图 | `--chain`：只吃 `类型：A -> B -> C` 箭头链与 Chen-ER 三段式；普通中文句子会以 `DIAGRAM_REQUEST_UNPARSED` 拒绝 | 不需要 |
 | 已有模型重画、增量改、批量样例 | `--input <model.json>`、`--input --patch <patch.json>`、`--preset`、`--examples` | 不需要 |
 
@@ -37,7 +38,9 @@ npm run generate:toolshare
 
 本项目**不请求任何模型，也不保存 API key**。自然语言、文档和图片仍是入口，但「理解需求、产出 Diagram Model」这一步交给调用方——宿主 agent，或它调用的任意模型。项目负责把收到的答案逐个过闸门，再交给 ELK 布局。
 
-流程：`--emit-plan` 先取一份规划任务（源材料 + 契约 + 答案格式），此步不产出图；用任意模型回答后存成 `answer.json`；再 `--plan answer.json` 回灌。
+流程：`--emit-plan` 先取一份规划任务（源材料 + 契约 + 答案格式），此步不产出图；用任意模型回答后存成 `answer.json`；再 `--plan answer.json` 回灌。注意 `--plan` 需要原始源材料（`--text` / `--document` / `--image`）来逐字核验证据，所以它和 `--emit-plan` 接收同一组输入参数。
+
+**`npm run demo` 把这三步串成一条命令**，见 `examples/adapter/README.md`。adapter 是核心之外的零依赖参考实现：设了 `DIAGRAM_ADAPTER_API_KEY` 就走 OpenAI 兼容模型（`DIAGRAM_ADAPTER_BASE_URL` / `DIAGRAM_ADAPTER_MODEL` 可换服务与模型），没设就走确定性离线 mock——mock 只证明链路是通的，它会如实说自己是 mock。
 
 默认档 `ai-led` 下，提交的答案只被"画得诚实"这一类闸门拦下：图类型与字段合法、稳定 ID 未被改写、不含任何 `x`/`y`/`width`/`height`/边路由（`MODEL_GEOMETRY_FORBIDDEN`）、关系类型是渲染器支持的、引用不悬空。证据 `quote` 是否逐字存在、置信度是否到 0.7、记法是否合该图类型的规范，都只作为 INFO 报告，不阻断（见「谁来评判」）。需要旧行为时，在模型里写 `"layout": { "profile": "strict" }`，闸门会重新要求逐字证据与不低于 0.7 的置信度。可选 `--audit audit.json` 提交对该答案的独立复审；不提供时质量报告会记 `SEMANTIC_AUDIT_SKIPPED` 警告并把 `auditConfidence` 留为 0，不会当成已通过审查。未通过闸门时不落盘。
 
@@ -282,8 +285,11 @@ npm run generate -- --chain "画一个 Chen ER 图。实体：学生、课程；
 
 这些参数只影响 ELK 布局，不会把坐标写回模型；`wrapping` 在 ELK 不适用时会自动安全回退为非包装布局，并保留 Layout Warning。
 - `constraints.placement` 支持 `FIRST`、`LAST`、`FIRST_SEPARATE`、`LAST_SEPARATE`，**实测生效**（底层 `layering.layerConstraint`）。最上/最下用 TOP_TO_BOTTOM 配合 FIRST/LAST，最左/最右用 LEFT_TO_RIGHT 配合 FIRST/LAST。
-- `constraints.sameLayer` 目前**只是意图记录**：它映射到 `layering.layerChoiceConstraint`，而该选项在 elkjs 0.12.0 上未产生任何可观察差异（含最廉价的可满足用例）。工具会检测并用 `BROKEN_SAME_LAYER_CONSTRAINT` 报告它没成立，但**不要依赖它改变布局**。
-- `constraints.before` 决定送入引擎的子节点次序（也用于稳定 ID 与拆分顺序），但该构建的交叉最小化会自行决定层内排位；实测改次序**不改变最终布局**。想消交叉请改结构：去掉或改接跨层长边、容器分组、`placement` 定层、或拆分。
+- `constraints.forceSingle=true` 让超过 40 节点的图仍然只出一张，不拆分子系统。
+
+**`constraints.sameLayer` 和 `constraints.before` 已从模型 API 删除**（破坏性变更）。它们此前是「读起来像承诺的死配置」：`sameLayer` 映射到 `layering.layerChoiceConstraint`，`before` 改变送入引擎的子节点次序，而在 elkjs 0.12.0 上两者都**没有任何可观察效果**——连「x、y 本来就在同一层」这种最廉价的可满足用例都不动。现在带着这两个键的 `.model.json` 会在 `createDiagram` 直接抛错，错误信息说明为什么被删、以及该改用哪个杠杆，而不是安静地按作者没要求的方式布局。
+
+想消交叉请改**结构**：去掉或改接跨层长边、用容器分组、用 `placement` 定层、或拆分。`direction` 翻转、`layout.algorithm` 切换、改节点次序都实测无效，工具的建议文案里也不会拿它们骗你（有测试钉住这一点）。
 
 示例：
 
@@ -291,9 +297,7 @@ npm run generate -- --chain "画一个 Chen ER 图。实体：学生、课程；
 {
   "direction": "LEFT_TO_RIGHT",
   "constraints": {
-    "placement": { "node.user": "FIRST", "node.database": "LAST" },
-    "sameLayer": [["node.cache", "node.database"]],
-    "before": [["node.gateway", "node.service"]]
+    "placement": { "node.user": "FIRST", "node.database": "LAST" }
   }
 }
 ```
@@ -304,23 +308,21 @@ npm run generate -- --chain "画一个 Chen ER 图。实体：学生、课程；
 
 ## UML 质量保证
 
-本项目已实现完整的 UML 语义验证和视觉规范，确保生成的图表符合 UML 2.5 标准：
+语义检查分两处，都用**稳定错误码**（完整码表与严重度见 `docs/ERROR_CODES.md`）：
 
-### 自动验证
-- ✅ **语义规则检查**：18+ 条 UML 规则（继承环、双向组合、孤立节点等）
-- ✅ **布局质量检查**：节点重叠、边交叉、边穿节点检测
-- ✅ **引用完整性**：激活条、组合片段、容器引用验证
+- `src/validate/semantics.ts`：按图类型的结构性要求——缺 Actor、缺初始/终止伪状态、类图里混进 `flow`/`foreign-key` 边、State 复合状态与 Activity 对象流与 ER/Chen ER 的专用元数据引用悬空等。
+- `src/validate/uml-rules.ts`：20 条 UML 规则，码以 `UML_` 开头，覆盖用例图（`include`/`extend` 端点、Actor 之间该用泛化、用例未被任何 Actor 使用）、类图（继承环、双向组合/聚合、自组合、`realization` 未指向接口）、时序图（消息/激活条/组合片段引用悬空、`create` 消息不是首条）、状态图（初始态唯一、初始态无入边、终止态无出边、不可达状态）、组件图（依赖环）。
 
-### 视觉符号
-- ✅ **类图**：静态成员下划线、抽象方法斜体、接口/抽象类名斜体
-- ✅ **时序图**：5 种消息类型（同步、异步、返回、创建、销毁）视觉区分
-- ✅ **状态图**：初始状态⚫、终止状态⊙符号
-- ✅ **用例图**：Actor 泛化支持（空心三角箭头）
+这些码是手写常量，不是从提示语里生成的，所以改措辞不会改掉调用方依赖的码。默认 `ai-led` 档下它们是 `INFO`（不阻断、不触发重排），`strict` 档下是 `WARNING`；见「谁来评判：ai-led 与 strict」。
 
-详细文档见 `docs/` 目录：
-- `docs/ROADMAP.md` - 完整改进路线图
-- `docs/PROGRESS_REPORT.md` - 当前进度和改进效果
-- `docs/PHASE2_IMPROVEMENTS.md` - 最新改进详情
+视觉记法：
+
+- **类图**：静态成员下划线，抽象方法斜体，接口/抽象类名斜体。
+- **时序图**：按 `messageKind`（`call` / `return` / `create` / `destroy` / `signal`）与 `isAsync` 区分箭头与虚线；`return` 与反向消息画虚线开放箭头，`destroy` 画叉。
+- **状态图**：初始态是实心圆，终止态是 `doubleEllipse` 双圈（UML 2.5 的 14.2.3.4 记法）。
+- **用例图**：Actor 泛化用空心三角箭头。
+
+文档分工见 `docs/ROADMAP.md` 顶部。历史阶段报告在 `docs/archive/`，**不作为事实源**，其中失效的命令与数字逐条列在 `docs/archive/README.md`。
 
 ## 修改现有图
 
@@ -334,7 +336,7 @@ npm run generate -- --chain "画一个 Chen ER 图。实体：学生、课程；
 
 **直线不再被折成直角。** 一条边若在 ELK 里没有拐点，`.drawio` 会写 `edgeStyle=none`。不加这个覆盖，Draw.io 会拿端点自己重排成直角折线——于是同一个模型 `.drawio` 里是折线、`.svg` 里是直线，而校验器量的那条直线其实根本没被画出来。现在两个渲染口径一致：**校验的是什么线，看到的就是什么线**。带拐点的边仍保留 `<Array as="points">` 与正交路由。
 
-若节点超过 40 个，CLI 会优先按照顶层 Container 自动生成 `main.drawio` 概览和各子系统 `.drawio`；没有 Container 时按稳定节点顺序拆成 `part-1`、`part-2`。每一份同时生成 `.model.json` 和 `.svg`，子图中的原节点/边 ID 不变。用户明确要求单图时设置 `constraints.forceSingle=true`，仍会生成一张图并保留 Layout Warning。
+若节点超过 40 个，CLI 会优先按照顶层 Container 自动生成 `main.drawio` 概览和各子系统 `.drawio`；没有 Container 时按稳定节点顺序拆成 `part-1`、`part-2`。每一份同时生成 `.model.json` 和 `.svg`，子图中的原节点/边 ID 不变。拆分时还会额外写一个 `<id>.multipage.drawio`：各部分按顺序合并为同一文件的多页，每页保留自己的 id、名称与画幅；审查位图时可用 `rasterizeForReview({ page })` 只导出某一页。用户明确要求单图时设置 `constraints.forceSingle=true`，仍会生成一张图并保留 Layout Warning。
 
 ## 目录与扩展点
 
