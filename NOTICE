@@ -1,0 +1,43 @@
+ai-diagram-tool
+Copyright 2026 ai-diagram-tool contributors
+
+This product includes software developed at jgraph (draw.io / diagrams.net).
+
+--------------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------------
+
+vendor/libavoid/libavoid.min.js
+  Origin:      jgraph/drawio, src/main/webapp/js/libavoid-js/libavoid.min.js
+               (compiled by jgraph/drawio-libavoid from the Adaptagrams C++
+               libavoid router into a pure-JS/wasm2js build)
+  License:     LGPL-2.1 (verbatim upstream notice kept at vendor/libavoid/LICENSE)
+  Modified:    No
+  Role here:   Fallback edge router. Used by src/layout/fallback-router.ts ONLY
+               for edges that ELK left unrouted; never as the primary router.
+               Provenance, license reasoning and the measured comparison behind
+               that decision: vendor/libavoid/NOTES.md
+
+vendor/libavoid/libavoid-routing.js
+  Origin:      jgraph/drawio, src/main/webapp/js/libavoid-js/libavoid-routing.js
+               (hand-authored globalThis.AvoidRouting core)
+  License:     Apache-2.0 (the draw.io repository license)
+  Modified:    No. If this file is ever modified, Apache-2.0 requires the change
+               to be recorded in vendor/libavoid/NOTES.md.
+  Role here:   Same as above.
+
+--------------------------------------------------------------------------------
+Runtime dependencies (not redistributed in this repository)
+--------------------------------------------------------------------------------
+
+@elkjs/elkjs   0.12.0    EPL-2.0 OR GPL-3.0-or-later  (Eclipse Layout Kernel, JS build)
+mammoth        1.12.3    BSD-2-Clause
+pdfjs-dist     6.3.289   Apache-2.0
+
+Dev-only (never shipped in a diagram artifact):
+tsx            4.23.13   MIT
+typescript     5.9.3     Apache-2.0
+
+These are declared in package.json and fetched by `npm install`; their own
+license texts ship inside their packages under node_modules/. Versions above
+were read from the installed packages' `license` fields, not guessed.
