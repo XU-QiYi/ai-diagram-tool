@@ -1,5 +1,11 @@
 # AI Diagram 工作流改进进度报告
 
+> **DEPRECATED — 已归档的历史阶段报告，不要按本文改代码或跑命令。**
+> 下方六阶段进度表与「整体进度 33%」已废弃：项目后来真正的走向（`src/agent/`、`src/mcp/`、
+> `src/validate/visual.ts`、`src/layout/fallback-router.ts`、`src/render/png.ts`）在那张表里
+> 一格都对应不上。文中「UML 符合度 79%（加权平均）」没有任何评测出处。当前路线图见
+> [`docs/ROADMAP.md`](../ROADMAP.md)，失效清单见 [`docs/archive/README.md`](./README.md)。
+
 > **当前可执行基线（2026-09-25）**：本文件下方的六阶段表格是历史规划记录，不代表当前源码状态。当前基线已通过 `npm run build`、`npm test` 和 `npm run examples`；CLI 的 `validate`、`layout`、`render` 已实际运行。模型层已覆盖稳定 ID、节点/边/端口引用、嵌套 Container 一致性与样式边界；语义层检查 State、Activity、ER、Chen ER 的专用元数据引用并将缺失引用标为 `ERROR`；布局层已覆盖节点重叠、边穿节点、边交叉（含边界接触/共线重叠）、容器层级和结构化 `ValidationReport`。最新流水线还统一了 `ValidationIssue` 的 `severity/code/phase/path` 契约，记录 ELK 每次迭代的 profile 与错误统计，并在严格渲染命令写盘前检查 Draw.io XML、SVG 和稳定 ID。后续新增能力应以 `README.md`、`AGENTS.md` 和当前测试为准，再把结果补入本历史报告。
 
 ### 2026-09-25 工程化迭代

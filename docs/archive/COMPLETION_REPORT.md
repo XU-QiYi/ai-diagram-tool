@@ -1,5 +1,9 @@
 # 工作流完善总结报告
 
+> **DEPRECATED — 已归档的历史阶段报告，不要按本文改代码或跑命令。**
+> 本文的命令、测试数量、图类型数量和「WARNING 阻断」等结论均已失效；失效清单见
+> [`docs/archive/README.md`](./README.md)。当前事实源是根目录 `README.md`、`AGENTS.md`、`CHANGELOG.md`。
+
 ## 📋 任务回顾
 
 用户要求：

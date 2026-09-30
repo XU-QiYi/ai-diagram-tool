@@ -1,5 +1,10 @@
 # AI Diagram 工作流改进总结
 
+> **DEPRECATED — 已归档的历史阶段报告，不要按本文改代码或跑命令。**
+> 仍有参考价值的是 `RelationshipType` 清单与「消息类型 → Draw.io 样式」对照表；其余命令、
+> 测试数量和严重度结论均已失效，清单见 [`docs/archive/README.md`](./README.md)。
+> 当前事实源是根目录 `README.md`、`AGENTS.md`、`CHANGELOG.md`。
+
 ## 已完成的改进（第一阶段）
 
 本次改进专注于增强 UML 图的语义正确性和专业性，主要完成了以下内容：
