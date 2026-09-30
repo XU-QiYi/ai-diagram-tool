@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -95,4 +97,159 @@ test('npm run demo runs the three steps end to end with no shell and no key', ()
     existsSync(path.join(root, 'output', 'demo', `${demoAnswer.diagram.id}.drawio`)),
     'the demo must end with an editable diagram',
   );
+});
+
+/**
+ * Async child run. The HTTP-mode tests serve the fake endpoint from THIS process, so the
+ * child must run while the event loop stays live — `spawnSync` here would block the very
+ * server the child is talking to, deadlocking until undici's 300s header timeout.
+ */
+function runAsync(
+  command: string,
+  args: string[],
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<{ status: number; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { cwd: root, env });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk: Buffer) => (stdout += chunk));
+    child.stderr.on('data', (chunk: Buffer) => (stderr += chunk));
+    child.on('error', reject);
+    child.on('close', (code) => resolve({ status: code ?? -1, stdout, stderr }));
+  });
+}
+
+/** A fake OpenAI-compatible endpoint: records what the adapter sent, replies with canned content. */
+function fakeOpenAi(
+  content: string,
+  status = 200,
+): Promise<{ url: string; seen: Record<string, unknown>; close: () => Promise<void> }> {
+  return new Promise((resolve) => {
+    const seen: Record<string, unknown> = {};
+    const server = http.createServer((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on('data', (chunk: Buffer) => chunks.push(chunk));
+      req.on('end', () => {
+        seen.authorization = req.headers.authorization;
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+          model?: string;
+          messages?: Array<{ role?: string }>;
+        };
+        seen.model = body.model;
+        seen.systemIncluded = (body.messages ?? []).some((m) => m.role === 'system');
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(
+          status === 200
+            ? JSON.stringify({ choices: [{ message: { content: `\`\`\`json\n${content}\n\`\`\`` } }] })
+            : JSON.stringify({ error: { message: 'canned failure' } }),
+        );
+      });
+    });
+    server.listen(0, '127.0.0.1', () => {
+      const port = (server.address() as AddressInfo).port;
+      resolve({
+        url: `http://127.0.0.1:${port}/v1`,
+        seen,
+        close: () => new Promise<void>((done) => server.close(() => done())),
+      });
+    });
+  });
+}
+
+test('adapter HTTP mode: real endpoint round-trip, and the answer passes the plan gate', async () => {
+  rmSync(scratch, { recursive: true, force: true });
+  const request = '画一个 UML 用例图：普通用户可以登录、浏览工具、提交租借申请';
+  const taskFile = path.join(scratch, 'task.json');
+  const answerFile = path.join(scratch, 'answer.json');
+  const emitted = await runAsync(process.execPath, [
+    '--import',
+    'tsx',
+    'src/cli.ts',
+    'generate',
+    '--emit-plan',
+    taskFile,
+    '--text',
+    request,
+  ]);
+  assert.equal(emitted.status, 0, emitted.stderr);
+
+  // A known-good answer comes from the mock; the fake endpoint serves it fenced, so the
+  // adapter's fence-stripping and JSON extraction are exercised for real.
+  const mockRun = await runAsync(process.execPath, [adapter, taskFile, answerFile], {
+    ...process.env,
+    DIAGRAM_ADAPTER_API_KEY: '',
+  });
+  assert.equal(mockRun.status, 0, mockRun.stderr);
+  const servedAnswer = readFileSync(answerFile, 'utf8');
+
+  const fake = await fakeOpenAi(servedAnswer);
+  try {
+    const httpRun = await runAsync(process.execPath, [adapter, taskFile, answerFile], {
+      ...process.env,
+      DIAGRAM_ADAPTER_API_KEY: 'test-key-123',
+      DIAGRAM_ADAPTER_BASE_URL: fake.url,
+      DIAGRAM_ADAPTER_MODEL: 'test-model',
+    });
+    assert.equal(httpRun.status, 0, httpRun.stderr);
+    assert.match(httpRun.stdout, /OpenAI-compatible/, 'the mode must say it used HTTP');
+    assert.equal(fake.seen.authorization, 'Bearer test-key-123', 'the key must travel as a bearer token');
+    assert.equal(fake.seen.model, 'test-model');
+    assert.equal(fake.seen.systemIncluded, true, 'the task system prompt must be sent');
+    assert.equal(readFileSync(answerFile, 'utf8'), servedAnswer, 'the HTTP answer is what the endpoint returned');
+
+    const submitted = await runAsync(process.execPath, [
+      '--import',
+      'tsx',
+      'src/cli.ts',
+      'generate',
+      '--plan',
+      answerFile,
+      '--text',
+      request,
+      '--out',
+      scratch,
+    ]);
+    assert.equal(submitted.status, 0, submitted.stderr);
+    const answer = JSON.parse(readFileSync(answerFile, 'utf8')) as { diagram: { id: string } };
+    assert.ok(
+      existsSync(path.join(scratch, `${answer.diagram.id}.drawio`)),
+      'the gate must produce an editable .drawio',
+    );
+  } finally {
+    await fake.close();
+    rmSync(scratch, { recursive: true, force: true });
+  }
+});
+
+test('adapter HTTP mode: a failing endpoint is a loud error with the status code, not a silent mock fallback', async () => {
+  rmSync(scratch, { recursive: true, force: true });
+  const taskFile = path.join(scratch, 'task.json');
+  const answerFile = path.join(scratch, 'answer.json');
+  const emitted = await runAsync(process.execPath, [
+    '--import',
+    'tsx',
+    'src/cli.ts',
+    'generate',
+    '--emit-plan',
+    taskFile,
+    '--text',
+    '画一个 UML 用例图：普通用户可以登录',
+  ]);
+  assert.equal(emitted.status, 0, emitted.stderr);
+
+  const fake = await fakeOpenAi('irrelevant', 500);
+  try {
+    const run = await runAsync(process.execPath, [adapter, taskFile, answerFile], {
+      ...process.env,
+      DIAGRAM_ADAPTER_API_KEY: 'test-key-123',
+      DIAGRAM_ADAPTER_BASE_URL: fake.url,
+    });
+    assert.notEqual(run.status, 0, 'a failed model request must fail the adapter');
+    assert.match(run.stderr, /model request failed: HTTP 500/);
+    assert.ok(!existsSync(answerFile), 'no answer file may be written from a failed call');
+  } finally {
+    await fake.close();
+    rmSync(scratch, { recursive: true, force: true });
+  }
 });
