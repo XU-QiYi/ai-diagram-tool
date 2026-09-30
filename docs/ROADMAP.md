@@ -21,7 +21,7 @@
 | 项 | 实测值 | 怎么复现 |
 |---|---|---|
 | TypeScript 编译 | 通过，0 error | `npm run build` |
-| 测试 | 175 个测试 / 7 个 suite / 17 个文件，全过，0 失败 | `npm test` |
+| 测试 | 177 个测试 / 7 个 suite / 18 个文件，全过，0 失败 | `npm test` |
 | 示例 | 19 个示例目录，每个含 `.model.json` + `.drawio` + `.svg` | `npm run examples` |
 | 图类型 | 15 种（`src/diagram-types/registry.ts`） | 见 README「这些类型分别适合什么」 |
 | MCP 工具 | 8 个（stdio JSON-RPC，零新增依赖）；`npm run mcp:http` 提供 Streamable HTTP 传输（MCP 2025-06-18，无会话，Origin/Host 校验） | `npm run mcp` / `npm run mcp:http` |

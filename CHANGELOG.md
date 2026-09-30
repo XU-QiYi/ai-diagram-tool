@@ -16,6 +16,14 @@ SVG 预览形状保真补齐、README 三分钟上手、布局引擎现状核实
 
 - **「布局引擎上游停止维护」的说法经核实过时**：elkjs 与 Eclipse ELK 同步发版（minor 版本号一致），0.12.0 发布于 2026-07-17，0.10/0.11 均为近两年发布——项目已在最新版。ROADMAP 的风险表述改为真正的风险「升级会改变布局输出」，并写明升级流程：`npm run verify` + `npm run visual-gate` 全绿、有意重建 golden 基线后才合入。
 
+### 工程收敛（问题清单逐项清零）
+
+- **全仓格式化应用，CI 换 `biome ci`**：`format:check` 此前 36 个文件不过；应用格式（62 文件，无行为变化，175 测试照过）后 CI 的 lint 步骤按其注释承诺切换为 `biome ci`，格式从此有机器门禁。顺带修掉 `biome.json` 的 `rules.recommended` 废弃键（→ `preset: "recommended"`）与 `tests/visual-diff.test.ts` 的死变量 `stride`，lint 现在 0 警告 0 建议。
+- **`verify-examples.ts` 误报修复**：`examples/adapter/` 是手写的 reference adapter，不在 `npm run examples` 的产物里，逐字节比对把这三个文件误报为「缺文件」——CI 一旦真正运行就会挂。已按脚本自带的 `HAND_WRITTEN` 允许清单（要求逐条写明理由）登记。
+- **补两个真空白测试**（`tests/presets-and-split.test.ts`）：五个架构预设（含新事件驱动拓扑）在 strict 档下布局零 ERROR；>40 节点双容器模型的拆分产生 overview + 每容器一份、稳定 ID 不重复、多页文件按序合并。此前 `--preset` 与按容器拆分这两条用户可见路径没有测试执行过。
+- **CI 增加 Windows job**：draw.io Desktop 路径探测、盘根 EPERM 守卫等平台相关代码此前只在 ubuntu runner 上跑；Windows job 跑 lint+build+test（示例逐字节比对与视觉门禁依赖换行符与真实 renderer，仍归 ubuntu）。视觉后端测试自带 skip 守卫，无 draw.io 的 runner 会优雅跳过。
+- **依赖审计 0 漏洞**（`npm audit --registry=https://registry.npmjs.org`，运行时与开发依赖各查一遍；默认镜像源不提供 audit 端点）；`npm run generate:toolshare` / `generate:architecture-report` / `npm run demo`（离线 mock）冒烟全部通过。
+
 ## [未发布] — 2026-09-30
 
 P1 收尾与 P2 第一批：让「一句话出图」可演示、视觉质量可回归，并接通多页导出。

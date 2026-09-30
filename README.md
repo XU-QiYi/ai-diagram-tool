@@ -6,7 +6,7 @@ AI 负责把自然语言、文档或图片转换成 Diagram Model；ELK.js 负�
 
 ```bash
 npm install && npm run build   # 装好并编译（Node.js 22.13+）
-npm test                       # 175 个测试应全绿
+npm test                       # 177 个测试应全绿
 npm run examples               # 生成 19 张示例图到 examples/
 npm run generate -- --preset layered --out output/first   # 不需要任何模型，一条命令出一张架构图
 ```
