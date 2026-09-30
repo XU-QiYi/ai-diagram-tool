@@ -2,6 +2,19 @@
 
 AI 负责把自然语言、文档或图片转换成 Diagram Model；ELK.js 负责布局和路由，验证器检查几何质量与渲染诚实性，最后输出可编辑的 diagrams.net/Draw.io XML 和 SVG 预览。需要 Node.js 22.13+。
 
+## 三分钟上手
+
+```bash
+npm install && npm run build   # 装好并编译（Node.js 22.13+）
+npm test                       # 175 个测试应全绿
+npm run examples               # 生成 19 张示例图到 examples/
+npm run generate -- --preset layered --out output/first   # 不需要任何模型，一条命令出一张架构图
+```
+
+`npm run examples` 覆盖基础类型、扩展 UML、状态机、Chen ER 和 4 个架构预设（`examples/01-system-architecture` 至 `19-chen-er`），每个目录含 `.model.json`（结构 + 稳定 ID）、`.drawio`（可编辑的正式产物）和 `.svg`（快速预览）。示例模型自带 `"layout": { "profile": "strict" }`——按最严档校验与重排，是各图类型的质量门面。想写到独立目录对比，用 `npm run examples -- --out <directory>`。
+
+想试「一句话出图」的完整闭环：`npm run demo`（设了 `DIAGRAM_ADAPTER_API_KEY` 走 OpenAI 兼容模型，没设走离线 mock，不需要任何 key）。业务图批量脚本：`npm run generate:toolshare`，结果全部写入 `output/drawio-tool/`。各入口的分工见下一节表格。
+
 ## 先说清楚：谁负责"理解"
 
 **这里的「AI」不是本工具。** 项目刻意不调用任何模型、不存 API key——理解由宿主 agent（或它调用的 reasoner）承担，工具负责把结构画成诚实、可编辑的图。
@@ -13,28 +26,9 @@ AI 负责把自然语言、文档或图片转换成 Diagram Model；ELK.js 负�
 | 固定格式快速出图 | `--chain`：只吃 `类型：A -> B -> C` 箭头链与 Chen-ER 三段式；普通中文句子会以 `DIAGRAM_REQUEST_UNPARSED` 拒绝 | 不需要 |
 | 已有模型重画、增量改、批量样例 | `--input <model.json>`、`--input --patch <patch.json>`、`--preset`、`--examples` | 不需要 |
 
-**SVG 只是近似预览。** 它实现的形状少于 `.drawio`（`cylinder`、`umlActor`、`component`、`cube`、`note` 在 SVG 里可能画成矩形），可编辑的 `.drawio` 才是真相；要看准就出走本机 Draw.io 的位图（`--emit-review`）。
+**SVG 预览与 `.drawio` 出自同一份布局，主要形状一致**——圆柱、UML 组件（带卡榫）、部署立方体、Actor 火柴人、菱形、双圈终止态、弱实体双框在两边画的是同一个东西；文字在异形内部的精确落位仍可能有像素级出入，可编辑的 `.drawio` 才是真相；要看准就走本机 Draw.io 的位图（`--emit-review`）。
 
-## 安装与运行
-
-```bash
-npm install
-npm run build
-npm test
-npm run examples
-```
-
-`npm run examples` 会生成 19 个示例目录，覆盖基础类型、扩展 UML 类型、状态机、Chen ER 和 4 个架构预设：`examples/01-system-architecture` 至 `19-chen-er`。每个目录包含 `.model.json`、`.drawio` 和 `.svg`。示例模型自带 `"layout": { "profile": "strict" }`——示例按最严档校验与重排，是各图类型的质量门面。验证时可用 `npm run examples -- --out <directory>` 写入独立目录，避免覆盖已有图。
-
-项目内置的业务图批量生成脚本使用：
-
-```bash
-npm run generate:toolshare
-```
-
-结果全部写入 `output/drawio-tool/`，不会散落到项目外部。
-
-### 语义由调用方提供
+## 语义由调用方提供
 
 本项目**不请求任何模型，也不保存 API key**。自然语言、文档和图片仍是入口，但「理解需求、产出 Diagram Model」这一步交给调用方——宿主 agent，或它调用的任意模型。项目负责把收到的答案逐个过闸门，再交给 ELK 布局。
 

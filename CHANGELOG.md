@@ -3,6 +3,19 @@
 本项目遵守 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格，版本号遵循语义化版本。
 本文件记录 `ai-diagram-tool` 的显著变更。
 
+## [未发布] — 2026-10-01
+
+SVG 预览形状保真补齐、README 三分钟上手、布局引擎现状核实。
+
+### 新增
+
+- **SVG 预览补齐 `cylinder` / `component` / `cube`**（`src/render/svg.ts`）：此前 README 明说这三种形状在 SVG 里画成矩形——现在圆柱（直壁+顶部椭圆）、UML 组件（左缘双卡榫，单路径无缝）、部署立方体（正面+顶/右侧三面）都与 `.drawio` 画同样的形状，SVG 预览与正式产物的形状集合一致；四张样图（组件图/ER/网络/部署）经 sharp 光栅化逐张目验。README 的「SVG 只是近似预览」段落同步改写，只保留文字落位的像素级差异说明。
+- **README「三分钟上手」**：README 顶部新增四条命令的最短路径（install/build → test → examples → `--preset` 一条命令出图），原「安装与运行」一节并入，新手不用再在 32KB 里自己找路。
+
+### 修正
+
+- **「布局引擎上游停止维护」的说法经核实过时**：elkjs 与 Eclipse ELK 同步发版（minor 版本号一致），0.12.0 发布于 2026-07-17，0.10/0.11 均为近两年发布——项目已在最新版。ROADMAP 的风险表述改为真正的风险「升级会改变布局输出」，并写明升级流程：`npm run verify` + `npm run visual-gate` 全绿、有意重建 golden 基线后才合入。
+
 ## [未发布] — 2026-09-30
 
 P1 收尾与 P2 第一批：让「一句话出图」可演示、视觉质量可回归，并接通多页导出。

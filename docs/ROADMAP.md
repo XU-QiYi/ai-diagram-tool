@@ -52,6 +52,11 @@
   结果里写明用了哪个后端；审查结论只能映射为 `LayoutPreferences`，坐标一律丢弃。
 - **专用布局**：timeline（单轴里程碑）与 mindmap（双向发散）走确定性专用布局（AGENTS §6），
   显式指定 `layout.algorithm` 时仍可用 ELK。
+- **布局引擎现状（2026-10-01 核实）**：elkjs 与 Eclipse ELK 同步发版（minor 版本号一致），
+  0.12.0 发布于 2026-07——「上游停止维护」的说法已过时，本项目在用最新版。
+  真正的风险是**升级会改变布局输出**：升级流程 = `npm run verify` + `npm run visual-gate`
+  全绿、有意重建 golden 基线后才合入；对当前版本实测无效的旋钮（如 `sameLayer`/`before`）
+  已从模型 API 删除，不随版本假设复活。
 - **示例即门面**：19 个示例自带 `layout.profile: "strict"`，严格档逐例校验零 WARNING/ERROR，
   6 张 golden 基线由真实 renderer 生成并逐像素回归。
 
