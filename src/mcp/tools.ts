@@ -15,7 +15,7 @@ import type { PlannedDiagram } from '../ai/types.js';
 import { createDiagramFromRequest } from '../diagram-types/registry.js';
 import type { Diagram, LayoutResult, ValidationIssue, ValidationReport } from '../model/types.js';
 import { LAYOUT_ALGORITHMS } from '../model/types.js';
-import { assertNoGeometry, asRecord, clampNumber, GeometryInputError, requireString, ToolError, type JsonRecord } from './guards.js';
+import { assertNoGeometry, asRecord, clampNumber, requireString, ToolError, type JsonRecord } from './guards.js';
 
 export interface ToolDefinition {
   name: string;
@@ -448,7 +448,7 @@ export async function callTool(name: string, rawArgs: unknown, options: ToolCall
       const layout = await layoutDiagram(diagram);
       const round = clampNumber(args.round, 1, 1, 9);
       const maxRounds = clampNumber(args.maxRounds, DEFAULT_VISUAL_MAX_ROUNDS, 0, 5);
-      const task = await buildReviewTask(layout, { dir: out, round });
+      const task = await buildReviewTask(layout, { dir: out, round, env });
       return json({
         task,
         note: 'Look at task.pngPath, then answer with findings JSON using only ids from task.elementIds and fields from task.allowedFields.',

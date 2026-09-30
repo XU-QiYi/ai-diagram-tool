@@ -5,7 +5,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
 import { callTool } from '../src/mcp/tools.js';
-import { ToolError } from '../src/mcp/guards.js';
 
 /**
  * An external reasoner supplies the semantics and the visual findings. These tests hold
@@ -71,7 +70,7 @@ async function payload(result: Awaited<ReturnType<typeof callTool>>): Promise<Re
 }
 
 const sources = { text: REQUEST };
-const env = {};
+const env = { ...process.env };
 
 test('plan_request hands the caller a task that states who owns geometry', async () => {
   const json = await payload(await callTool('diagram_plan_request', sources, { root: workspace, env }));

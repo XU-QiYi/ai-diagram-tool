@@ -15,7 +15,7 @@ import {
 import {
   DEFAULT_VISUAL_MAX_ROUNDS, VISUAL_LAYOUT_FIELDS, VISUAL_REVIEW_SYSTEM_PROMPT,
   applyVisualCorrection, augmentQualityWithVisualGate,
-  planVisualCorrections, runVisualGate, sanitizeVisualFindings, visualElementIds,
+  planVisualCorrections, runVisualGate, sanitizeVisualFindings,
 } from '../src/validate/visual.js';
 import type { VisualGateResult, VisualGateOptions } from '../src/validate/visual.js';
 

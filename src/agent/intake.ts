@@ -83,6 +83,13 @@ export interface ReviewTaskOptions {
   timeoutMs?: number;
   /** Reuse an existing bitmap instead of rasterizing again. */
   pngPath?: string;
+  /**
+   * Environment used to resolve the raster backend (`DRAWIO_PATH`, `PATH`, `ProgramFiles`,
+   * `MIMO_NODE_MODULES`). Omit it to inherit `process.env`. This is threaded all the way
+   * into `rasterizeForReview`; an option that stopped here would be a knob that looks
+   * configurable and silently is not.
+   */
+  env?: NodeJS.ProcessEnv;
 }
 
 /** Render the laid-out diagram and package it for a reviewer that can look at images. */
@@ -99,7 +106,7 @@ export async function buildReviewTask(layout: LayoutResult, options: ReviewTaskO
       fs.writeFile(svgPath, renderSvg(layout), 'utf8'),
       fs.writeFile(drawioPath, renderDrawio(layout), 'utf8'),
     ]);
-    raster = await rasterizeForReview({ drawioPath, svgPath, outPath: path.join(dir, `${layout.diagram.id}.r${round}.png`), scale: options.scale ?? 2, timeoutMs: options.timeoutMs ?? 60_000 });
+    raster = await rasterizeForReview({ drawioPath, svgPath, outPath: path.join(dir, `${layout.diagram.id}.r${round}.png`), scale: options.scale ?? 2, timeoutMs: options.timeoutMs ?? 60_000 }, { env: options.env });
     pngPath = raster.pngPath;
   }
   return {
