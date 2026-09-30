@@ -193,6 +193,30 @@ export function renderSvg(layout: LayoutResult): string {
         shape = `<polygon points="${cx},${n.y + pad} ${n.x + pad + n.width},${cy} ${cx},${n.y + pad + n.height} ${n.x + pad},${cy}" fill="${fill}" stroke="${stroke}"/>`;
       else if (weak)
         shape = `<rect x="${n.x + pad - 5}" y="${n.y + pad - 5}" width="${n.width + 10}" height="${n.height + 10}" rx="0" fill="none" stroke="${stroke}"/><rect x="${n.x + pad}" y="${n.y + pad}" width="${n.width}" height="${n.height}" rx="0" fill="${fill}" stroke="${stroke}"/>`;
+      else if (n.kind === "database" || n.style?.shape?.includes("cylinder"))
+        // Cylinder: straight walls plus a full ellipse on top — mirrors draw.io's
+        // shape=cylinder instead of degrading the preview to a rectangle.
+        shape = (() => {
+          const x = n.x + pad, y = n.y + pad, w = n.width, h = n.height;
+          const e = Math.min(h * 0.18, w * 0.14, 14);
+          return `<path d="M${x} ${y + e} V${y + h - e} A${w / 2} ${e} 0 0 0 ${x + w} ${y + h - e} V${y + e} Z" fill="${fill}" stroke="${stroke}"/><ellipse cx="${cx}" cy="${y + e}" rx="${w / 2}" ry="${e}" fill="${fill}" stroke="${stroke}"/>`;
+        })();
+      else if (n.kind === "component" || n.style?.shape?.includes("component"))
+        // UML component: body with the two characteristic tabs on the left edge, drawn
+        // as one outline so no seam runs through the fill.
+        shape = (() => {
+          const x = n.x + pad, y = n.y + pad, w = n.width, h = n.height;
+          const tab = Math.min(10, w * 0.1);
+          const a1 = y + h * 0.18, b1 = y + h * 0.38, a2 = y + h * 0.62, b2 = y + h * 0.82;
+          return `<path d="M${x + tab} ${y} H${x + w} V${y + h} H${x + tab} V${b2} H${x} V${a2} H${x + tab} V${b1} H${x} V${a1} H${x + tab} Z" fill="${fill}" stroke="${stroke}"/>`;
+        })();
+      else if (n.kind === "device" || layout.diagram.type === "deployment")
+        // Isometric cube (draw.io shape=cube): front face plus shaded top and right.
+        shape = (() => {
+          const x = n.x + pad, y = n.y + pad, w = n.width, h = n.height;
+          const o = Math.min(w, h) * 0.2;
+          return `<rect x="${x}" y="${y + o}" width="${w - o}" height="${h - o}" fill="${fill}" stroke="${stroke}"/><polygon points="${x},${y + o} ${x + o},${y} ${x + w},${y} ${x + w - o},${y + o}" fill="${fill}" fill-opacity="0.85" stroke="${stroke}"/><polygon points="${x + w - o},${y + o} ${x + w},${y} ${x + w},${y + h - o} ${x + w - o},${y + h}" fill="${fill}" fill-opacity="0.92" stroke="${stroke}"/>`;
+        })();
       else
         shape = `<rect x="${n.x + pad}" y="${n.y + pad}" width="${n.width}" height="${n.height}" rx="${layout.diagram.type === "uml-class" ? 0 : 8}" fill="${fill}" stroke="${stroke}"/>`;
       const hideText =
