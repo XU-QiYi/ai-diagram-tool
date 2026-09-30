@@ -40,46 +40,16 @@
       ]
     },
     {
-      "id": "node.identity",
-      "label": "Identity Service",
+      "id": "node.command",
+      "label": "Order Command Service",
       "kind": "service",
       "ports": [
         {
-          "id": "node.identity.in",
+          "id": "node.command.in",
           "side": "WEST"
         },
         {
-          "id": "node.identity.out",
-          "side": "EAST"
-        }
-      ]
-    },
-    {
-      "id": "node.order",
-      "label": "Order Service",
-      "kind": "service",
-      "ports": [
-        {
-          "id": "node.order.in",
-          "side": "WEST"
-        },
-        {
-          "id": "node.order.out",
-          "side": "EAST"
-        }
-      ]
-    },
-    {
-      "id": "node.payment",
-      "label": "Payment Service",
-      "kind": "service",
-      "ports": [
-        {
-          "id": "node.payment.in",
-          "side": "WEST"
-        },
-        {
-          "id": "node.payment.out",
+          "id": "node.command.out",
           "side": "EAST"
         }
       ]
@@ -100,38 +70,68 @@
       ]
     },
     {
-      "id": "node.redis",
-      "label": "Redis",
-      "kind": "cache",
+      "id": "node.notify",
+      "label": "Notification Service",
+      "kind": "service",
       "ports": [
         {
-          "id": "node.redis.in",
+          "id": "node.notify.in",
           "side": "WEST"
         },
         {
-          "id": "node.redis.out",
+          "id": "node.notify.out",
           "side": "EAST"
         }
       ]
     },
     {
-      "id": "node.order-db",
-      "label": "Order Database",
+      "id": "node.shipping",
+      "label": "Shipping Service",
+      "kind": "service",
+      "ports": [
+        {
+          "id": "node.shipping.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.shipping.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.analytics",
+      "label": "Analytics Service",
+      "kind": "service",
+      "ports": [
+        {
+          "id": "node.analytics.in",
+          "side": "WEST"
+        },
+        {
+          "id": "node.analytics.out",
+          "side": "EAST"
+        }
+      ]
+    },
+    {
+      "id": "node.event-store",
+      "label": "Event Store",
       "kind": "database",
       "ports": [
         {
-          "id": "node.order-db.in",
+          "id": "node.event-store.in",
           "side": "WEST"
         },
         {
-          "id": "node.order-db.out",
+          "id": "node.event-store.out",
           "side": "EAST"
         }
       ]
     },
     {
-      "id": "node.payment-provider",
-      "label": "Payment Provider",
+      "id": "node.email-provider",
+      "label": "Email Provider",
       "kind": "external"
     }
   ],
@@ -143,53 +143,51 @@
       "type": "flow"
     },
     {
-      "id": "edge.gateway-identity",
+      "id": "edge.gateway-command",
       "source": "node.gateway",
-      "target": "node.identity",
+      "target": "node.command",
+      "label": "command",
       "type": "uses"
     },
     {
-      "id": "edge.gateway-order",
-      "source": "node.gateway",
-      "target": "node.order",
-      "type": "uses"
-    },
-    {
-      "id": "edge.order-payment",
-      "source": "node.order",
-      "target": "node.payment",
-      "type": "dependency"
-    },
-    {
-      "id": "edge.order-bus",
-      "source": "node.order",
+      "id": "edge.command-bus",
+      "source": "node.command",
       "target": "node.bus",
-      "label": "OrderCreated",
+      "label": "publishes OrderCreated",
       "type": "flow"
     },
     {
-      "id": "edge.payment-bus",
+      "id": "edge.command-store",
+      "source": "node.command",
+      "target": "node.event-store",
+      "label": "appends",
+      "type": "uses"
+    },
+    {
+      "id": "edge.bus-notify",
       "source": "node.bus",
-      "target": "node.payment",
-      "label": "event",
+      "target": "node.notify",
+      "label": "subscribes",
       "type": "flow"
     },
     {
-      "id": "edge.order-cache",
-      "source": "node.order",
-      "target": "node.redis",
-      "type": "uses"
+      "id": "edge.bus-shipping",
+      "source": "node.bus",
+      "target": "node.shipping",
+      "label": "subscribes",
+      "type": "flow"
     },
     {
-      "id": "edge.order-db",
-      "source": "node.order",
-      "target": "node.order-db",
-      "type": "uses"
+      "id": "edge.bus-analytics",
+      "source": "node.bus",
+      "target": "node.analytics",
+      "label": "subscribes",
+      "type": "flow"
     },
     {
-      "id": "edge.payment-provider",
-      "source": "node.payment",
-      "target": "node.payment-provider",
+      "id": "edge.notify-email",
+      "source": "node.notify",
+      "target": "node.email-provider",
       "type": "dependency"
     }
   ],
@@ -206,19 +204,19 @@
       "id": "container.services",
       "label": "Service Cluster",
       "nodeIds": [
-        "node.identity",
-        "node.order",
-        "node.payment",
-        "node.bus"
+        "node.command",
+        "node.bus",
+        "node.notify",
+        "node.shipping",
+        "node.analytics"
       ],
       "direction": "TOP_TO_BOTTOM"
     },
     {
       "id": "container.data",
-      "label": "Data Stores",
+      "label": "Event Persistence",
       "nodeIds": [
-        "node.redis",
-        "node.order-db"
+        "node.event-store"
       ],
       "direction": "TOP_TO_BOTTOM"
     }

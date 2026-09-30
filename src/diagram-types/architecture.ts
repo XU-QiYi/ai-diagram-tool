@@ -246,17 +246,116 @@ export function microservicesArchitecture(
 export function eventDrivenArchitecture(
   title = "Event-driven Architecture",
 ): Diagram {
-  const diagram = microservicesArchitecture(title);
-  return {
-    ...diagram,
+  // Deliberately NOT derived from the microservices preset: an event-driven system has
+  // a different shape — one command side writes and publishes, the broker fans out to
+  // subscribers, and nothing calls downstream services synchronously. Deriving from
+  // microservices with a relabeled bus produced two examples that differed by one label.
+  return createDiagram({
     id: "architecture-event-driven",
-    nodes: diagram.nodes.map((n) =>
-      n.id === "node.bus"
-        ? { ...n, label: "Message Broker", kind: "queue" }
-        : n,
-    ),
+    title,
+    type: "system-architecture",
+    direction: "LEFT_TO_RIGHT",
+    routing: "ORTHOGONAL",
+    theme: { name: "professional", showLegend: true },
+    nodes: [
+      node("node.client", "Client", "frontend"),
+      node("node.gateway", "API Gateway", "gateway"),
+      node("node.command", "Order Command Service", "service"),
+      node("node.bus", "Message Broker", "queue"),
+      node("node.notify", "Notification Service", "service"),
+      node("node.shipping", "Shipping Service", "service"),
+      node("node.analytics", "Analytics Service", "service"),
+      node("node.event-store", "Event Store", "database"),
+      {
+        id: "node.email-provider",
+        label: "Email Provider",
+        kind: "external",
+      },
+    ],
+    edges: [
+      {
+        id: "edge.client-gateway",
+        source: "node.client",
+        target: "node.gateway",
+        type: "flow",
+      },
+      {
+        id: "edge.gateway-command",
+        source: "node.gateway",
+        target: "node.command",
+        label: "command",
+        type: "uses",
+      },
+      {
+        id: "edge.command-bus",
+        source: "node.command",
+        target: "node.bus",
+        label: "publishes OrderCreated",
+        type: "flow",
+      },
+      {
+        id: "edge.command-store",
+        source: "node.command",
+        target: "node.event-store",
+        label: "appends",
+        type: "uses",
+      },
+      {
+        id: "edge.bus-notify",
+        source: "node.bus",
+        target: "node.notify",
+        label: "subscribes",
+        type: "flow",
+      },
+      {
+        id: "edge.bus-shipping",
+        source: "node.bus",
+        target: "node.shipping",
+        label: "subscribes",
+        type: "flow",
+      },
+      {
+        id: "edge.bus-analytics",
+        source: "node.bus",
+        target: "node.analytics",
+        label: "subscribes",
+        type: "flow",
+      },
+      {
+        id: "edge.notify-email",
+        source: "node.notify",
+        target: "node.email-provider",
+        type: "dependency",
+      },
+    ],
+    containers: [
+      {
+        id: "container.edge",
+        label: "Edge",
+        nodeIds: ["node.gateway"],
+        direction: "TOP_TO_BOTTOM",
+      },
+      {
+        id: "container.services",
+        label: "Service Cluster",
+        nodeIds: [
+          "node.command",
+          "node.bus",
+          "node.notify",
+          "node.shipping",
+          "node.analytics",
+        ],
+        direction: "TOP_TO_BOTTOM",
+      },
+      {
+        id: "container.data",
+        label: "Event Persistence",
+        nodeIds: ["node.event-store"],
+        direction: "TOP_TO_BOTTOM",
+      },
+    ],
     metadata: { preset: "event-driven" },
-  };
+  });
 }
 
 export function cloudArchitecture(title = "Cloud Architecture"): Diagram {
