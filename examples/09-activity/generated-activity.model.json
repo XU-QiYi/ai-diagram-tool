@@ -43,6 +43,11 @@
       "id": "activity.finish",
       "label": "Finish",
       "kind": "end"
+    },
+    {
+      "id": "activity.rejected",
+      "label": "Rejected",
+      "kind": "end"
     }
   ],
   "edges": [
@@ -94,6 +99,13 @@
       "target": "activity.finish",
       "guard": "[valid]",
       "type": "flow"
+    },
+    {
+      "id": "activity.decision-rejected",
+      "source": "activity.decision",
+      "target": "activity.rejected",
+      "guard": "[invalid]",
+      "type": "flow"
     }
   ],
   "activity": {
@@ -115,7 +127,8 @@
           "activity.reserve",
           "activity.join",
           "activity.decision",
-          "activity.finish"
+          "activity.finish",
+          "activity.rejected"
         ]
       }
     ],
@@ -123,5 +136,8 @@
       "activity.start-request",
       "activity.request-fork"
     ]
+  },
+  "layout": {
+    "profile": "strict"
   }
 }

@@ -221,5 +221,8 @@
       "node.user": "FIRST",
       "node.external": "LAST"
     }
+  },
+  "layout": {
+    "profile": "strict"
   }
 }

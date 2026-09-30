@@ -104,5 +104,8 @@
         "usecase.reset-password"
       ]
     }
-  ]
+  ],
+  "layout": {
+    "profile": "strict"
+  }
 }

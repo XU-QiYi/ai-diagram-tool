@@ -7,7 +7,8 @@
     "density": "compact",
     "nodeSpacing": 28,
     "layerSpacing": 36,
-    "targetAspectRatio": 1.25
+    "targetAspectRatio": 1.25,
+    "profile": "strict"
   },
   "nodes": [
     {

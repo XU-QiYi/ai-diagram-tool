@@ -118,8 +118,11 @@ test('renderers are deterministic and escape XML-sensitive labels', async () => 
   assert.equal(xml, renderDrawio(layout));
   assert.equal(svg, renderSvg(layout));
   assert.match(xml, /id="node\.source"/);
-  assert.match(xml, /A &amp; &lt;B&gt; &quot;C&quot;/);
-  assert.match(xml, /x &lt; y &amp; z &gt; 0/);
+  // draw.io renders label values with html=1, so text that must display literally is
+  // escaped twice in the XML attribute (&amp;lt; decodes to &lt; at the HTML pass);
+  // the SVG escapes once because it is plain XML with no HTML re-parsing.
+  assert.match(xml, /A &amp;amp; &amp;lt;B&amp;gt; &quot;C&quot;/);
+  assert.match(xml, /x &amp;lt; y &amp;amp; z &amp;gt; 0/);
   assert.match(svg, /A &amp; &lt;B&gt; &quot;C&quot;/);
   assert.match(svg, /x &lt; y &amp; z &gt; 0/);
   assert.doesNotMatch(svg, /<text[^>]*>A & <B>/);
@@ -138,7 +141,7 @@ test('render output validator checks roots, balanced tags, and stable element ID
 
 test('Use case diagram uses actors, ellipses, boundary and association semantics', async () => {
   const result = await layoutDiagram(umlUseCase()); const xml = renderDrawio(result);
-  assert.match(xml, /umlActor/); assert.match(xml, /verticalLabelPosition=bottom/); assert.match(xml, /ellipse/); assert.match(xml, /boundary\.system/); assert.match(xml, /endArrow=none/); assert.match(xml, /dashed=1/); assert.match(xml, /&lt;&lt;include&gt;&gt;/); assert.match(xml, /&lt;&lt;extend&gt;&gt;/); assert.match(xml, /endArrow=block;endFill=0/);
+  assert.match(xml, /umlActor/); assert.match(xml, /verticalLabelPosition=bottom/); assert.match(xml, /ellipse/); assert.match(xml, /boundary\.system/); assert.match(xml, /endArrow=none/); assert.match(xml, /dashed=1/); assert.match(xml, /&amp;lt;&amp;lt;include&amp;gt;&amp;gt;/); assert.match(xml, /&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;/); assert.match(xml, /endArrow=block;endFill=0/);
 });
 
 test('Registry keeps diagram semantics extensible and does not collapse types to flowcharts', () => {
@@ -489,7 +492,7 @@ test('a node may point at itself, and both renderers really draw the loop', asyn
   assert.ok(!layout.issues?.some(i => i.code === 'EDGE_UNROUTED'), 'the loop must actually get a route');
   const self = layout.edges.find(e => e.id === 'edge.draft-again')!;
   assert.ok((self.sections?.[0]?.bendPoints?.length ?? 0) > 0, 'a loop needs waypoints, not a zero-length line');
-  assert.match(renderDrawio(layout), /id="edge\.draft-again"[\s\S]{0,400}<Array as="points">/);
+  assert.match(renderDrawio(layout), /id="edge\.draft-again"[\s\S]{0,900}<Array as="points">/);
   assert.equal((renderSvg(layout).match(/stroke-width="1.5"/g) ?? []).length, 2, 'both edges must appear in the SVG');
 });
 

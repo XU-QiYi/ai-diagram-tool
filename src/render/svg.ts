@@ -27,7 +27,7 @@ function markers(
   sourceMultiplicity?: string,
   targetMultiplicity?: string,
 ) {
-  if (type === "association" || type === "communication-path") return "";
+  if (type === "association" || type === "communication-path" || type === "contains") return "";
   if (
     type === "inheritance" ||
     type === "generalization" ||
@@ -58,13 +58,15 @@ export function renderSvg(layout: LayoutResult): string {
   const artifactBounds = (layout.diagram.deployment?.artifacts ?? [])
     .map((a) => {
       const host = layout.nodes.find((n) => n.id === a.deployedOn);
+      // UML draws an artifact INSIDE the node it deploys to, matching renderDrawio
+      // (bottom-right corner, under the top-aligned host label).
       return host
         ? {
             ...a,
-            x: host.x + pad + host.width - 35,
-            y: host.y + pad + host.height + 20,
-            width: 120,
-            height: 45,
+            x: host.x + pad + host.width - 120,
+            y: host.y + pad + host.height - 32,
+            width: 110,
+            height: 28,
           }
         : undefined;
     })
@@ -125,6 +127,9 @@ export function renderSvg(layout: LayoutResult): string {
     .join("");
   const nodes = layout.nodes
     .map((n) => {
+      const weak =
+        layout.diagram.er?.entities?.some((e) => e.nodeId === n.id && e.weak) ??
+        false;
       const lines = nodeTextLines(n, layout.diagram.type).map(esc);
       const lineHeight = n.style?.lineHeight ?? 18;
       const startY =
@@ -184,13 +189,29 @@ export function renderSvg(layout: LayoutResult): string {
         shape = `<polygon points="${cx},${n.y + pad} ${n.x + pad + n.width},${cy} ${cx},${n.y + pad + n.height} ${n.x + pad},${cy}" fill="${fill}" stroke="${stroke}"/>`;
       else if ((n.kind === "start" || n.kind === "end") && layout.diagram.type === "flowchart")
         shape = `<ellipse cx="${cx}" cy="${cy}" rx="${n.width / 2}" ry="${n.height / 2}" fill="${fill}" stroke="${stroke}"/>`;
+      else if (n.kind === "milestone")
+        shape = `<polygon points="${cx},${n.y + pad} ${n.x + pad + n.width},${cy} ${cx},${n.y + pad + n.height} ${n.x + pad},${cy}" fill="${fill}" stroke="${stroke}"/>`;
+      else if (weak)
+        shape = `<rect x="${n.x + pad - 5}" y="${n.y + pad - 5}" width="${n.width + 10}" height="${n.height + 10}" rx="0" fill="none" stroke="${stroke}"/><rect x="${n.x + pad}" y="${n.y + pad}" width="${n.width}" height="${n.height}" rx="0" fill="${fill}" stroke="${stroke}"/>`;
       else
         shape = `<rect x="${n.x + pad}" y="${n.y + pad}" width="${n.width}" height="${n.height}" rx="${layout.diagram.type === "uml-class" ? 0 : 8}" fill="${fill}" stroke="${stroke}"/>`;
       const hideText =
         (n.kind === "start" || n.kind === "end") && activityOrState;
-      let renderedText = hideText ? "" : `<text x="${cx}" y="${startY}" text-anchor="middle" font-family="Arial" font-size="${n.style?.fontSize ?? 14}" fill="${n.style?.text ?? defaults.text}">${text}</text>`;
+      // Fork/join bars are near-black; their label needs the light counterpart, exactly
+      // like renderDrawio sets fontColor=#FFFFFF for them.
+      const nodeTextColor =
+        (n.kind === "fork" || n.kind === "join") && layout.diagram.type === "activity"
+          ? "#FFFFFF"
+          : n.style?.text ?? defaults.text;
+      // Deployment hosts carry artifacts in their lower half; match renderDrawio's
+      // top-aligned label so the two stay out of each other's way.
+      const labelY =
+        layout.diagram.type === "deployment" ? n.y + pad + 20 : startY;
+      let renderedText = hideText ? "" : `<text x="${cx}" y="${labelY}" text-anchor="middle" font-family="Arial" font-size="${n.style?.fontSize ?? 14}" fill="${nodeTextColor}">${text}</text>`;
       if (n.kind === "actor")
         renderedText = `<text x="${cx}" y="${n.y + pad + n.height - 5}" text-anchor="middle" font-family="Arial" font-size="${n.style?.fontSize ?? 14}" fill="${n.style?.text ?? defaults.text}">${labelLines(n.label).join(" ")}</text>`;
+      if (n.kind === "milestone")
+        renderedText = `<text x="${cx}" y="${n.y + pad + n.height + 18}" text-anchor="middle" font-family="Arial" font-size="${n.style?.fontSize ?? 14}" fill="${n.style?.text ?? defaults.text}">${labelLines(n.label).join(" ")}</text>`;
       if (layout.diagram.type === "chen-er" && n.kind === "key-attribute")
         renderedText = `<text x="${cx}" y="${startY}" text-anchor="middle" text-decoration="underline" font-family="Arial" font-size="${n.style?.fontSize ?? 14}" fill="${n.style?.text ?? defaults.text}">${text}</text>`;
       if (layout.diagram.type === "uml-class" && n.classMeta) {
@@ -245,13 +266,27 @@ export function renderSvg(layout: LayoutResult): string {
   const artifacts = artifactBounds
     .map(
       (a) =>
-        `<g><path d="M${a.x} ${a.y}h${a.width - 16}l16 16v${a.height - 16}h-${a.width}z" fill="#FFF7ED" stroke="#C2410C"/><text x="${a.x + a.width / 2}" y="${a.y + 28}" text-anchor="middle" font-family="Arial" font-size="12">${esc(a.label)}</text></g>`,
+        `<g><path d="M${a.x} ${a.y}h${a.width - 16}l16 16v${a.height - 16}h-${a.width}z" fill="#FFF7ED" stroke="#C2410C"/><text x="${a.x + a.width / 2}" y="${a.y + 18}" text-anchor="middle" font-family="Arial" font-size="12">${esc(a.label)}</text></g>`,
     )
     .join("");
   const legendSvg = legend
     ? `<g><rect x="${layout.width + pad + 35}" y="${pad}" width="220" height="238" rx="5" fill="white" stroke="#94A3B8"/><text x="${layout.width + pad + 50}" y="${pad + 26}" font-family="Arial" font-size="15" font-weight="bold">Legend</text>${["Actor / User", "Service", "Gateway", "Cache", "Database", "External System"].map((x, i) => `<rect x="${layout.width + pad + 50}" y="${pad + 42 + i * 31}" width="24" height="18" rx="3" fill="${defaults.fill}" stroke="${defaults.stroke}"/><text x="${layout.width + pad + 84}" y="${pad + 56 + i * 31}" font-family="Arial" font-size="11">${x}</text>`).join("")}</g>`
     : "";
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 z" fill="#000000"/></marker><marker id="triangle" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 z" fill="white" stroke="#000000"/></marker><marker id="diamondFilled" markerWidth="14" markerHeight="14" refX="7" refY="7" orient="auto"><path d="M0,7 L7,0 L14,7 L7,14 z" fill="#000000"/></marker><marker id="diamondOpen" markerWidth="14" markerHeight="14" refX="7" refY="7" orient="auto"><path d="M0,7 L7,0 L14,7 L7,14 z" fill="white" stroke="#000000"/></marker><marker id="erOne" markerWidth="12" markerHeight="14" refX="2" refY="7" orient="auto"><path d="M2,1V13 M6,1V13" stroke="#000"/></marker><marker id="erMany" markerWidth="14" markerHeight="14" refX="2" refY="7" orient="auto"><path d="M2,7L12,1 M2,7L12,7 M2,7L12,13" stroke="#000" fill="none"/></marker><marker id="erZeroOne" markerWidth="18" markerHeight="14" refX="2" refY="7" orient="auto"><circle cx="5" cy="7" r="3" fill="white" stroke="#000"/><path d="M11,1V13" stroke="#000"/></marker><marker id="erZeroMany" markerWidth="20" markerHeight="14" refX="2" refY="7" orient="auto"><circle cx="4" cy="7" r="3" fill="white" stroke="#000"/><path d="M9,7L19,1 M9,7L19,7 M9,7L19,13" stroke="#000" fill="none"/></marker><marker id="erOneMany" markerWidth="20" markerHeight="14" refX="2" refY="7" orient="auto"><path d="M3,1V13 M8,7L18,1 M8,7L18,7 M8,7L18,13" stroke="#000" fill="none"/></marker></defs><rect width="100%" height="100%" fill="${defaults.background}"/><text x="${pad}" y="32" font-family="Arial" font-size="20" font-weight="bold" fill="${defaults.text}">${esc(layout.diagram.title)}</text>${containerShapes}${edges}${nodes}${portShapes}${artifacts}${legendSvg}</svg>`;
+  // The timeline spine, matching the bar renderDrawio places behind its milestones.
+  const timelineAxis =
+    layout.diagram.type === "timeline" && layout.nodes.length
+      ? (() => {
+          const centers = layout.nodes.map((n) => ({
+            x: n.x + n.width / 2,
+            y: n.y + n.height / 2,
+          }));
+          const axisY = centers[0].y + pad;
+          const x1 = Math.min(...centers.map((c) => c.x)) + pad - 70;
+          const x2 = Math.max(...centers.map((c) => c.x)) + pad + 70;
+          return `<rect x="${x1}" y="${axisY - 2}" width="${x2 - x1}" height="4" fill="#64748B"/>`;
+        })()
+      : "";
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 z" fill="#000000"/></marker><marker id="triangle" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 z" fill="white" stroke="#000000"/></marker><marker id="diamondFilled" markerWidth="14" markerHeight="14" refX="7" refY="7" orient="auto"><path d="M0,7 L7,0 L14,7 L7,14 z" fill="#000000"/></marker><marker id="diamondOpen" markerWidth="14" markerHeight="14" refX="7" refY="7" orient="auto"><path d="M0,7 L7,0 L14,7 L7,14 z" fill="white" stroke="#000000"/></marker><marker id="erOne" markerWidth="12" markerHeight="14" refX="2" refY="7" orient="auto"><path d="M2,1V13 M6,1V13" stroke="#000"/></marker><marker id="erMany" markerWidth="14" markerHeight="14" refX="2" refY="7" orient="auto"><path d="M2,7L12,1 M2,7L12,7 M2,7L12,13" stroke="#000" fill="none"/></marker><marker id="erZeroOne" markerWidth="18" markerHeight="14" refX="2" refY="7" orient="auto"><circle cx="5" cy="7" r="3" fill="white" stroke="#000"/><path d="M11,1V13" stroke="#000"/></marker><marker id="erZeroMany" markerWidth="20" markerHeight="20" refX="2" refY="7" orient="auto"><circle cx="4" cy="7" r="3" fill="white" stroke="#000"/><path d="M9,7L19,1 M9,7L19,7 M9,7L19,13" stroke="#000" fill="none"/></marker><marker id="erOneMany" markerWidth="20" markerHeight="14" refX="2" refY="7" orient="auto"><path d="M3,1V13 M8,7L18,1 M8,7L18,7 M8,7L18,13" stroke="#000" fill="none"/></marker></defs><rect width="100%" height="100%" fill="${defaults.background}"/><text x="${pad}" y="32" font-family="Arial" font-size="20" font-weight="bold" fill="${defaults.text}">${esc(layout.diagram.title)}</text>${containerShapes}${timelineAxis}${edges}${nodes}${portShapes}${artifacts}${legendSvg}</svg>`;
 }
 
 function renderSequenceSvg(layout: LayoutResult): string {

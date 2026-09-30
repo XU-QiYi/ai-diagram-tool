@@ -74,5 +74,8 @@
       "target": "comp.db",
       "type": "dependency"
     }
-  ]
+  ],
+  "layout": {
+    "profile": "strict"
+  }
 }

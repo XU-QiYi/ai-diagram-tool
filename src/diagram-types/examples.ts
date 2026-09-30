@@ -125,4 +125,16 @@ export function umlUseCase(): Diagram { return createDiagram({ id: 'uml-usecase'
   { id: 'edge.reset-login', source: 'usecase.reset-password', target: 'usecase.login', type: 'extend' }
 ], containers: [{ id: 'boundary.system', label: 'Tool Sharing System', nodeIds: ['usecase.browse', 'usecase.rent', 'usecase.login', 'usecase.manage', 'usecase.reset-password'] }] }); }
 
-export const exampleDiagrams = [systemArchitecture, umlClass, umlComponent, umlUseCase, flowchart, erDiagram, sequenceDiagram, stateDiagram, activityDiagram, deploymentDiagram, mindMap, timeline, networkGraph, microservicesArchitecture, eventDrivenArchitecture, cloudArchitecture, deploymentArchitecturePreset, stateMachineDiagram, chenErDiagram];
+/**
+ * Bundled examples are the quality showcase, so each one carries `layout.profile: 'strict'`
+ * in its own `.model.json`: notation and aesthetic findings stay WARNING (not INFO), and the
+ * relayout loop keeps tuning spacing until the figure is genuinely tidy. The profile travels
+ * with the model, so regenerating any example with `--input` reproduces the same bar.
+ */
+export function strictExample(diagram: Diagram): Diagram {
+  return { ...diagram, layout: { ...diagram.layout, profile: 'strict' } };
+}
+
+export const exampleDiagrams = [systemArchitecture, umlClass, umlComponent, umlUseCase, flowchart, erDiagram, sequenceDiagram, stateDiagram, activityDiagram, deploymentDiagram, mindMap, timeline, networkGraph, microservicesArchitecture, eventDrivenArchitecture, cloudArchitecture, deploymentArchitecturePreset, stateMachineDiagram, chenErDiagram].map(
+  (factory) => () => strictExample(factory()),
+);

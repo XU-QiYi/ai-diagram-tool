@@ -226,5 +226,8 @@
       "target": "class.drawable",
       "type": "dependency"
     }
-  ]
+  ],
+  "layout": {
+    "profile": "strict"
+  }
 }

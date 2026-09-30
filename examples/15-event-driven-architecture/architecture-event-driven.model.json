@@ -225,5 +225,8 @@
   ],
   "metadata": {
     "preset": "event-driven"
+  },
+  "layout": {
+    "profile": "strict"
   }
 }

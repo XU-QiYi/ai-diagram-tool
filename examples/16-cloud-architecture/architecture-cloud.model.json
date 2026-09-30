@@ -224,5 +224,8 @@
   },
   "metadata": {
     "preset": "cloud"
+  },
+  "layout": {
+    "profile": "strict"
   }
 }

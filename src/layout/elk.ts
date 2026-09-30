@@ -15,6 +15,8 @@ import type {
 import { validateLayout } from "../validate/index.js";
 import { routeMissingEdges } from "./fallback-router.js";
 import { measureLabel, measureNode } from "../utils/text.js";
+import { timelineLayout } from "./timeline.js";
+import { mindmapLayout } from "./mindmap.js";
 import { LAYOUT_ALGORITHMS, type LayoutAlgorithm } from "../model/types.js";
 
 const elk = new (ELK as any)();
@@ -400,6 +402,15 @@ export async function layoutDiagram(
   diagram: Diagram,
   maxIterations = 5,
 ): Promise<LayoutResult> {
+  // AGENTS §6: a timeline (one shared axis) and a mind map (radiation from a root) are
+  // not graph-layout problems — ELK layered/mrtree rendered them as a loose bubble row
+  // and a one-sided org chart. Their dedicated deterministic layouts take over unless an
+  // algorithm was requested explicitly.
+  const requestedAlgorithm = diagram.layout?.algorithm;
+  if (!requestedAlgorithm || requestedAlgorithm === "auto") {
+    if (diagram.type === "timeline") return timelineLayout(diagram);
+    if (diagram.type === "mindmap") return mindmapLayout(diagram);
+  }
   const base = layoutProfile(diagram);
   const iterationLimit = Number.isFinite(maxIterations) ? Math.max(1, Math.floor(maxIterations)) : 5;
   const algorithm = algorithmFor(diagram);

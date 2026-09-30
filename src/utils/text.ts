@@ -34,6 +34,9 @@ export function nodeTextLines(node: Node, type: DiagramType): string[] {
 export function measureNode(node: Node, type: DiagramType): { width: number; height: number } {
   if(type==='activity' && (node.kind==='fork'||node.kind==='join')) return {width:Math.max(node.width??0,160),height:Math.max(node.height??0,14)};
   if((type==='state'||type==='state-machine'||type==='activity') && (node.kind==='start'||node.kind==='end')) return {width:Math.max(node.width??0,34),height:Math.max(node.height??0,34)};
+  // Deployment hosts carry an artifact note in their lower half (renderDrawio/renderSvg);
+  // below ~72px the note would cover the node's top-aligned label.
+  if(type==='deployment') return {width:Math.max(node.width??0,140),height:Math.max(node.height??0,72)};
   if (type === 'chen-er') {
     const fontSize = node.style?.fontSize ?? 14;
     const lines = nodeTextLines(node, type);

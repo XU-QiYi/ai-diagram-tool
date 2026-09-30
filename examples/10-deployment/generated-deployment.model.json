@@ -44,5 +44,8 @@
         "deployedOn": "node.server"
       }
     ]
+  },
+  "layout": {
+    "profile": "strict"
   }
 }

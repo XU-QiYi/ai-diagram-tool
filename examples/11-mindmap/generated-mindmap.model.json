@@ -23,6 +23,21 @@
       "id": "mind.three",
       "label": "Branch C",
       "kind": "branch"
+    },
+    {
+      "id": "mind.one-a",
+      "label": "Sub A1",
+      "kind": "leaf"
+    },
+    {
+      "id": "mind.one-b",
+      "label": "Sub A2",
+      "kind": "leaf"
+    },
+    {
+      "id": "mind.two-a",
+      "label": "Sub B1",
+      "kind": "leaf"
     }
   ],
   "edges": [
@@ -43,6 +58,27 @@
       "source": "mind.root",
       "target": "mind.three",
       "type": "contains"
+    },
+    {
+      "id": "mind.one-one-a",
+      "source": "mind.one",
+      "target": "mind.one-a",
+      "type": "contains"
+    },
+    {
+      "id": "mind.one-one-b",
+      "source": "mind.one",
+      "target": "mind.one-b",
+      "type": "contains"
+    },
+    {
+      "id": "mind.two-two-a",
+      "source": "mind.two",
+      "target": "mind.two-a",
+      "type": "contains"
     }
-  ]
+  ],
+  "layout": {
+    "profile": "strict"
+  }
 }

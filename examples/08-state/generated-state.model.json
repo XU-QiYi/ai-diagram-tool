@@ -56,10 +56,15 @@
         "id": "composite.order",
         "label": "Order Lifecycle",
         "nodeIds": [
+          "state.initial",
           "state.pending",
-          "state.active"
+          "state.active",
+          "state.closed"
         ]
       }
     ]
+  },
+  "layout": {
+    "profile": "strict"
   }
 }

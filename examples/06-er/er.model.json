@@ -54,5 +54,8 @@
         "weak": true
       }
     ]
+  },
+  "layout": {
+    "profile": "strict"
   }
 }

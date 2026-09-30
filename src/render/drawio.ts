@@ -25,21 +25,34 @@ const esc = (s: string) =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+// Draw.io stores HTML labels inside XML attributes and renders them with html=1, so the
+// value is decoded TWICE: once as XML (the attribute), once as HTML (the decoded string).
+// Text that must display literally — <<component>>, List<Layer>, a<b — therefore has to be
+// escaped twice: esc() alone yields `&lt;component&gt;` in the attribute, which decodes to
+// a real `<component>` tag that the HTML pass swallows (stereotypes rendered as `<>`,
+// include/extend labels vanished). Structural markup below (like `&lt;u&gt;`) escapes once
+// on purpose: it becomes a real tag after XML decoding and is consumed as HTML by design.
+const escText = (s: string) =>
+  s
+    .replace(/&/g, "&amp;amp;")
+    .replace(/</g, "&amp;lt;")
+    .replace(/>/g, "&amp;gt;")
+    .replace(/"/g, "&quot;");
 // Draw.io stores HTML labels inside XML attributes, so the <br> tag itself must be escaped.
 const labelHtml = (s: string) =>
   s
     .split(/\\n|\r?\n/)
-    .map(esc)
+    .map(escText)
     .join("&lt;br&gt;");
 function nodeLabel(n: LayoutNode, type: string) {
-  if (type === "chen-er" && n.kind === "key-attribute") return `&lt;u&gt;${esc(n.label)}&lt;/u&gt;`;
+  if (type === "chen-er" && n.kind === "key-attribute") return `&lt;u&gt;${escText(n.label)}&lt;/u&gt;`;
   if ((type === "state" || type === "state-machine") && n.stateBehavior) {
     const rows = [
-      n.stateBehavior.entry ? `entry / ${esc(n.stateBehavior.entry)}` : "",
-      n.stateBehavior.do ? `do / ${esc(n.stateBehavior.do)}` : "",
-      n.stateBehavior.exit ? `exit / ${esc(n.stateBehavior.exit)}` : "",
+      n.stateBehavior.entry ? `entry / ${escText(n.stateBehavior.entry)}` : "",
+      n.stateBehavior.do ? `do / ${escText(n.stateBehavior.do)}` : "",
+      n.stateBehavior.exit ? `exit / ${escText(n.stateBehavior.exit)}` : "",
     ].filter(Boolean).join("&lt;br&gt;");
-    return `&lt;div style=&quot;text-align:center;font-weight:bold;padding:7px 8px 8px&quot;&gt;${esc(n.label)}&lt;/div&gt;${rows ? `&lt;div style=&quot;border-top:1px solid #64748B;text-align:left;padding:7px 10px&quot;&gt;${rows}&lt;/div&gt;` : ""}`;
+    return `&lt;div style=&quot;text-align:center;font-weight:bold;padding:7px 8px 8px&quot;&gt;${escText(n.label)}&lt;/div&gt;${rows ? `&lt;div style=&quot;border-top:1px solid #64748B;text-align:left;padding:7px 10px&quot;&gt;${rows}&lt;/div&gt;` : ""}`;
   }
   if (type !== "uml-class" || !n.classMeta) return labelHtml(n.label);
   const m = n.classMeta;
@@ -49,12 +62,12 @@ function nodeLabel(n: LayoutNode, type: string) {
     .map((a) => {
       const vis = a.visibility ?? "";
       const name = a.isStatic
-        ? `&lt;u&gt;${esc(a.name)}&lt;/u&gt;`
-        : esc(a.name);
-      const type = a.type ? `: ${esc(a.type)}` : "";
-      const mult = a.multiplicity ? ` [${esc(a.multiplicity)}]` : "";
+        ? `&lt;u&gt;${escText(a.name)}&lt;/u&gt;`
+        : escText(a.name);
+      const type = a.type ? `: ${escText(a.type)}` : "";
+      const mult = a.multiplicity ? ` [${escText(a.multiplicity)}]` : "";
       const defaultValue =
-        a.defaultValue !== undefined ? ` = ${esc(a.defaultValue)}` : "";
+        a.defaultValue !== undefined ? ` = ${escText(a.defaultValue)}` : "";
       return `${keyMarker(a.key)}${vis}${name}${type}${mult}${defaultValue}`;
     })
     .join("&lt;br&gt;");
@@ -64,9 +77,9 @@ function nodeLabel(n: LayoutNode, type: string) {
     .map((o) => {
       const vis = o.visibility ?? "";
       const params = (o.parameters ?? [])
-        .map((p) => `${esc(p.name)}: ${esc(p.type ?? "")}`)
+        .map((p) => `${escText(p.name)}: ${escText(p.type ?? "")}`)
         .join(", ");
-      let methodName = esc(o.name);
+      let methodName = escText(o.name);
 
       // 静态方法用下划线
       if (o.isStatic) {
@@ -77,23 +90,23 @@ function nodeLabel(n: LayoutNode, type: string) {
         methodName = `&lt;i&gt;${methodName}&lt;/i&gt;`;
       }
 
-      return `${vis}${methodName}(${params}): ${esc(o.returnType ?? "void")}`;
+      return `${vis}${methodName}(${params}): ${escText(o.returnType ?? "void")}`;
     })
     .join("&lt;br&gt;");
 
   // Stereotype 处理
   const stereotype = m.stereotype
-    ? `&lt;&lt;${esc(m.stereotype)}&gt;&gt;&lt;br&gt;`
+    ? `&amp;lt;&amp;lt;${escText(m.stereotype)}&amp;gt;&amp;gt;&lt;br&gt;`
     : "";
 
   // 类名 - 如果是抽象类或接口则斜体
   const className =
     m.stereotype === "interface" || m.stereotype === "abstract"
-      ? `&lt;i&gt;${esc(n.label)}&lt;/i&gt;`
-      : esc(n.label);
+      ? `&lt;i&gt;${escText(n.label)}&lt;/i&gt;`
+      : escText(n.label);
 
   const typeParams = m.typeParameters?.length
-    ? `&lt;${esc(m.typeParameters.join(", "))}&gt;`
+    ? `&amp;lt;${escText(m.typeParameters.join(", "))}&amp;gt;`
     : "";
 
   const header = `&lt;div style=&quot;text-align:center;padding:7px 8px 8px;line-height:1.35&quot;&gt;${stereotype}${className}${typeParams}&lt;/div&gt;`;
@@ -125,7 +138,7 @@ function edgeStyle(
   targetMultiplicity?: string,
 ) {
   const base =
-    "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;fontColor=#000000;";
+    "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;fontColor=#000000;labelBackgroundColor=#FFFFFF;";
   if (type === "inheritance") return base + "endArrow=block;endFill=0;";
   if (type === "generalization") return base + "endArrow=block;endFill=0;"; // Actor泛化（用例图）
   if (type === "dependency") return base + "dashed=1;endArrow=open;endFill=0;";
@@ -145,6 +158,7 @@ function edgeStyle(
   if (type === "object-flow") return base + "endArrow=block;";
   if (type === "communication-path") return base + "endArrow=none;";
   if (type === "association") return base + "endArrow=none;";
+  if (type === "contains") return base + "endArrow=none;";
   return base + "endArrow=block;";
 }
 function themeDefaults(name?: string) {
@@ -185,7 +199,7 @@ function nodeStyle(
     return "shape=doubleEllipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#FFFFFF;strokeColor=#1E293B;strokeWidth=2;fontColor=#1E293B;";
   }
   if ((n.kind === "fork" || n.kind === "join") && type === "activity")
-    return "shape=rectangle;whiteSpace=wrap;html=1;fillColor=#1E293B;strokeColor=#1E293B;rounded=0;";
+    return "shape=rectangle;whiteSpace=wrap;html=1;fillColor=#1E293B;strokeColor=#1E293B;rounded=0;fontColor=#FFFFFF;";
 
   const theme = n.style ?? {},
     defaults = themeDefaults(themeName);
@@ -255,7 +269,7 @@ function nodeStyle(
                         : n.kind === "device" || type === "deployment"
                           ? "shape=cube"
                           : n.kind === "milestone"
-                            ? "ellipse"
+                            ? "shape=rhombus;verticalLabelPosition=bottom;verticalAlign=top;"
                             : "rounded=1");
   const extra =
     type === "uml-class"
@@ -264,9 +278,13 @@ function nodeStyle(
         ? "fontStyle=0;"
       : type === "state" || type === "state-machine"
           ? "arcSize=20;"
-          : type === "mindmap" && n.kind === "root"
-            ? "fontStyle=1;strokeWidth=2;"
-            : "";
+            : type === "deployment"
+              ? // Artifacts are drawn inside the host node's lower half; a centered label
+                // would sit underneath them. Top-align the label so both stay readable.
+                "verticalAlign=top;spacingTop=12;"
+            : type === "mindmap" && n.kind === "root"
+              ? "fontStyle=1;strokeWidth=2;"
+              : "";
   const text =
     theme.text ??
     (n.kind === "start" || n.kind === "end" ? "#FFFFFF" : defaults.text);
@@ -295,6 +313,17 @@ export function renderDrawio(layout: LayoutResult): string {
       `<mxCell id="${esc(c.id)}" value="${labelHtml(c.label)}" style="swimlane;html=1;horizontal=1;startSize=30;fillColor=${fill};strokeColor=${stroke};fontColor=${text};fontStyle=1;collapsible=0;" vertex="1" parent="${esc(parentId ?? "1")}"><mxGeometry x="${x}" y="${y}" width="${c.width}" height="${c.height}" as="geometry"/></mxCell>`,
     );
   }
+  // The timeline spine: milestones sit on one shared axis, and the bar behind them makes
+  // the figure read as a timeline rather than a row of loose diamonds.
+  if (layout.diagram.type === "timeline" && layout.nodes.length) {
+    const centers = layout.nodes.map((n) => ({ x: n.x + n.width / 2, y: n.y + n.height / 2 }));
+    const axisY = centers[0].y;
+    const x1 = Math.min(...centers.map((c) => c.x)) - 70;
+    const x2 = Math.max(...centers.map((c) => c.x)) + 70;
+    cells.push(
+      `<mxCell id="timeline.axis" value="" style="shape=rectangle;whiteSpace=wrap;html=1;fillColor=#64748B;strokeColor=none;rounded=0;" vertex="1" parent="1"><mxGeometry x="${x1 - minX + pad}" y="${axisY - minY + pad - 2}" width="${x2 - x1}" height="4" as="geometry"/></mxCell>`,
+    );
+  }
   for (const n of layout.nodes) {
     const containerId =
       n.containerId ?? containers.find((c) => c.nodeIds.includes(n.id))?.id;
@@ -308,6 +337,13 @@ export function renderDrawio(layout: LayoutResult): string {
     const weak =
       layout.diagram.er?.entities?.some((e) => e.nodeId === n.id && e.weak) ??
       false;
+    // Weak entities are drawn with a double border (an outline cell 5px outside the node).
+    // There is no single draw.io style for a double rectangle, and the earlier attempt
+    // (`double=1`) is not a style key, so weak entities silently rendered single-walled.
+    if (weak)
+      cells.push(
+        `<mxCell id="${esc(n.id)}.weak-outline" value="" style="${nodeStyle(n, layout.diagram.type, layout.diagram.theme?.name, weak)}fillColor=none;strokeWidth=1;" vertex="1" parent="${esc(parent)}"><mxGeometry x="${x - 5}" y="${y - 5}" width="${n.width + 10}" height="${n.height + 10}" as="geometry"/></mxCell>`,
+      );
     cells.push(
       `<mxCell id="${esc(n.id)}" value="${pseudo ? "" : nodeLabel(n, layout.diagram.type)}" style="${nodeStyle(n, layout.diagram.type, layout.diagram.theme?.name, weak)}" vertex="1" parent="${esc(parent)}"><mxGeometry x="${x}" y="${y}" width="${n.width}" height="${n.height}" as="geometry"/></mxCell>`,
     );
@@ -359,8 +395,24 @@ export function renderDrawio(layout: LayoutResult): string {
     // re-routes it with its own orthogonal elbows, so the editable file would show a
     // different line than the one ELK produced, the validator checked and the SVG drew.
     const straightRoute = (e.sections?.length ?? 0) === 1 && !(e.sections?.[0]?.bendPoints?.length);
+    // Pin both endpoints to where ELK attached them. With floating terminals Draw.io picks
+    // its own perimeter points, so a straight edge between two unaligned shapes renders as
+    // a diagonal even though ELK produced a horizontal/vertical segment — the file would
+    // show a line the validator never measured. Port-attached edges anchor to the port
+    // cell instead, and there is nothing to recompute.
+    const s0 = e.sections?.[0];
+    const srcNode = layout.nodes.find((n) => n.id === e.source);
+    const tgtNode = layout.nodes.find((n) => n.id === e.target);
+    let pinned = "";
+    if (s0 && srcNode && tgtNode && !e.sourcePort && !e.targetPort) {
+      const frac = (v: number, base: number, size: number) =>
+        Math.round(Math.min(1, Math.max(0, (v - base) / (size || 1))) * 10000) / 10000;
+      pinned =
+        `exitX=${frac(s0.startPoint.x, srcNode.x, srcNode.width)};exitY=${frac(s0.startPoint.y, srcNode.y, srcNode.height)};exitDx=0;exitDy=0;` +
+        `entryX=${frac(s0.endPoint.x, tgtNode.x, tgtNode.width)};entryY=${frac(s0.endPoint.y, tgtNode.y, tgtNode.height)};entryDx=0;entryDy=0;`;
+    }
     cells.push(
-      `<mxCell id="${esc(e.id)}"${rendered} style="${edgeStyle(e.type, e.sourceMultiplicity, e.targetMultiplicity)}${erStyle}${straightRoute ? "edgeStyle=none;" : ""}strokeColor=${edgeStroke};fontColor=${edgeText};" edge="1" parent="1" source="${esc(e.sourcePort ?? e.source)}" target="${esc(e.targetPort ?? e.target)}">${geometry}</mxCell>`,
+      `<mxCell id="${esc(e.id)}"${rendered} style="${edgeStyle(e.type, e.sourceMultiplicity, e.targetMultiplicity)}${erStyle}${straightRoute ? "edgeStyle=none;" : ""}${pinned}strokeColor=${edgeStroke};fontColor=${edgeText};" edge="1" parent="1" source="${esc(e.sourcePort ?? e.source)}" target="${esc(e.targetPort ?? e.target)}">${geometry}</mxCell>`,
     );
     if (e.sourceMultiplicity)
       cells.push(
@@ -377,10 +429,14 @@ export function renderDrawio(layout: LayoutResult): string {
     for (const a of layout.diagram.deployment?.artifacts ?? []) {
       const host = layout.nodes.find((n) => n.id === a.deployedOn);
       if (host) {
-        const x = host.x - minX + pad + host.width - 35,
-          y = host.y - minY + pad + host.height + 20,
-          width = 120,
-          height = 45;
+        // UML draws an artifact INSIDE the node it deploys to; hanging it below the node
+        // left it floating outside the host (and outside its container), which read as a
+        // detached box rather than a deployment. Bottom-right corner, under the
+        // top-aligned host label (measureNode keeps hosts >= 64px tall for this).
+        const width = 110,
+          height = 28,
+          x = host.x - minX + pad + host.width - width - 10,
+          y = host.y - minY + pad + host.height - height - 4;
         cells.push(
           `<mxCell id="${esc(a.id)}" value="${labelHtml(a.label)}" style="shape=note;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#C2410C;" vertex="1" parent="1"><mxGeometry x="${x}" y="${y}" width="${width}" height="${height}" as="geometry"/></mxCell>`,
         );
@@ -397,17 +453,24 @@ export function renderDrawio(layout: LayoutResult): string {
       ["Database", "shape=cylinder;fillColor=#E8F1FF;strokeColor=#3B82F6"],
       ["External System", "rounded=1;fillColor=#FFF4E5;strokeColor=#F59E0B"],
     ];
+    // The actor glyph keeps its proportions, so it gets a narrow tall cell with the label
+    // underneath; squeezing it into a 180x24 row flattened it into an unreadable blob.
+    const rowHeight = (label: string) => (label === "Actor / User" ? 58 : 26);
     const lx = layout.width - minX + pad + 40,
       ly = pad,
       lw = 210,
-      lh = 42 + entries.length * 34;
+      lh = 42 + entries.reduce((sum, [label]) => sum + rowHeight(label), 0);
     cells.push(
       `<mxCell id="legend" value="Legend" style="swimlane;html=1;horizontal=1;startSize=32;fillColor=#FFFFFF;strokeColor=#94A3B8;fontStyle=1;collapsible=0;" vertex="1" parent="1"><mxGeometry x="${lx}" y="${ly}" width="${lw}" height="${lh}" as="geometry"/></mxCell>`,
     );
+    let rowY = 42;
     for (const [i, [label, style]] of entries.entries()) {
+      const actor = label === "Actor / User";
+      const rh = rowHeight(label);
       cells.push(
-        `<mxCell id="legend.item.${i + 1}" value="${label}" style="${style};whiteSpace=wrap;html=1;fontSize=11;" vertex="1" parent="legend"><mxGeometry x="15" y="${42 + i * 34}" width="180" height="24" as="geometry"/></mxCell>`,
+        `<mxCell id="legend.item.${i + 1}" value="${label}" style="${style};whiteSpace=wrap;html=1;fontSize=11;${actor ? "verticalLabelPosition=bottom;verticalAlign=top;" : ""}" vertex="1" parent="legend"><mxGeometry x="${actor ? (lw - 32) / 2 : 15}" y="${rowY}" width="${actor ? 32 : 180}" height="${actor ? 40 : 24}" as="geometry"/></mxCell>`,
       );
+      rowY += rh;
     }
     extraMaxX = Math.max(extraMaxX, lx + lw);
     extraMaxY = Math.max(extraMaxY, ly + lh);
@@ -534,7 +597,7 @@ function renderSequenceDrawio(layout: LayoutResult): string {
       pad * 2 + Math.max(0, ordered.length - 1) * 260 + 180,
     );
     cells.push(
-      `<mxCell id="${esc(fragment.id)}" value="${esc(fragment.operator.toUpperCase())}${fragment.guard ? ` [${esc(fragment.guard)}]` : ""}" style="dashed=1;fillColor=none;strokeColor=#64748B;verticalAlign=top;align=left;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="${pad - 20}" y="${y}" width="${fragmentWidth - 2 * pad + 40}" height="${h}" as="geometry"/></mxCell>`,
+      `<mxCell id="${esc(fragment.id)}" value="${esc(fragment.operator.toUpperCase())}${fragment.guard ? ` [${esc(fragment.guard)}]` : ""}" style="dashed=1;fillColor=none;strokeColor=#64748B;verticalAlign=top;align=left;spacingTop=4;spacingLeft=8;labelBackgroundColor=#FFFFFF;" vertex="1" parent="1"><mxGeometry x="${pad - 20}" y="${y}" width="${fragmentWidth - 2 * pad + 40}" height="${h}" as="geometry"/></mxCell>`,
     );
   }
   return `<?xml version="1.0" encoding="UTF-8"?><mxfile host="app.diagrams.net"><diagram id="${esc(layout.diagram.id)}" name="${esc(layout.diagram.title)}"><mxGraphModel dx="${width}" dy="${height}" grid="1" gridSize="10" page="1" pageWidth="${width}" pageHeight="${height}"><root>${cells.join("")}</root></mxGraphModel></diagram></mxfile>`;

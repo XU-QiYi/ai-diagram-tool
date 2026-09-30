@@ -63,5 +63,8 @@
       "label": "no",
       "type": "flow"
     }
-  ]
+  ],
+  "layout": {
+    "profile": "strict"
+  }
 }

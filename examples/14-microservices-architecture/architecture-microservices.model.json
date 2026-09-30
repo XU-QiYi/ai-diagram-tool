@@ -222,5 +222,8 @@
       ],
       "direction": "TOP_TO_BOTTOM"
     }
-  ]
+  ],
+  "layout": {
+    "profile": "strict"
+  }
 }

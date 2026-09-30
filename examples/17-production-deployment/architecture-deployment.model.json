@@ -112,5 +112,8 @@
         "deployedOn": "node.app-b"
       }
     ]
+  },
+  "layout": {
+    "profile": "strict"
   }
 }
