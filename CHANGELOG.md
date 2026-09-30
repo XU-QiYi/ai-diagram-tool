@@ -14,6 +14,9 @@ P1 收尾与 P2 第一批：让「一句话出图」可演示、视觉质量可�
 - **多页 `.drawio` 导出**：拆分场景（>40 节点）下 CLI 额外写 `<id>.multipage.drawio`（`renderDrawioMultiPage`），把各部分按顺序合并为同一文件的多页，每页保留自己的 id、名称与画幅；`rasterizeForReview({ page })` 由此可只导出某一页——论文套图一次导出、按页审查。合并器只接受 `renderDrawio` 的产物，其他 XML 直接抛错：绕过单页渲染诚实性检查的捷径不存在。验证：`tests/render-multipage.test.ts`（页序/id/名称保留、拒绝非页面输入）；CLI 冒烟：45 节点双容器模型拆成 main/a/b，`mp-smoke.multipage.drawio` 含 3 个按序 `<diagram>`。
 - **timeline / mindmap 专用布局**（`src/layout/timeline.ts`、`src/layout/mindmap.ts`）：两者走 AGENTS §6 预留的专用确定性布局——timeline 把里程碑按声明顺序排在一条共享轴线上（milestone 画菱形、渲染器补轴线，连线即轴段），mindmap 按子树高度把一级分支配平到根的两侧（此前 ELK mrtree 只会往一边挂，画出来是右侧组织树而不是思维导图）。显式指定 `layout.algorithm` 时仍用 ELK，专用布局同样过 `validateLayout` 并按 profile 出报告。
 - **19 个示例自带 `layout.profile: "strict"`**：示例是质量门面，现在每个 `.model.json` 都带最严档——记法与观感问题保持 WARNING 并参与自动重排；重新生成后严格档逐例校验零 WARNING/ERROR。活动图补上 `[invalid]` 分支与 Rejected 终点、状态图把初始/终止伪状态收进复合状态、思维导图示例加二级分支。
+- **MCP Streamable HTTP 传输**（`src/mcp/http.ts`，`npm run mcp:http`）：路线图最后一项。同一套 `tools.ts`/`guards.ts` 分发器开一个 `/mcp` HTTP 端点（MCP 2025-06-18），远程 agent / Web 宿主可以像 stdio 一样调用。无会话：通知与响应帧回 202，请求回单个 JSON，GET/DELETE 回 405（无服务端推送、无可终止会话），批处理回 400（该修订已移除），`MCP-Protocol-Version` 不支持回 400，请求体上限 10 MB（超限 413 且排空后再应答，客户端能收到状态码）。安全按规范三条全做：每个连接校验 `Origin`（防 DNS 重绑定）、默认只绑 127.0.0.1、另校验 `Host` 头作为第二道墙；工具调用与 stdio 一样串行执行。验证：`tests/mcp-http.test.ts` 16 例 + 真实进程冒烟（initialize 握手、通知 202）。
+- **`npm run coverage`**：Node 内建 `--experimental-test-coverage`，零新增依赖拿到逐文件覆盖率报告。
+- **事件驱动示例重写为真正的发布/订阅拓扑**：此前它就是微服务预设改了一个节点名，两张示例图几乎一样。现在是独立预设——命令服务写事件库并发布 `OrderCreated`，Message Broker 扇出到 Notification/Shipping/Analytics 三个订阅者，无同步下游调用链；`--preset event-driven` 同步生效。
 
 ### 修复
 
@@ -29,7 +32,7 @@ P1 收尾与 P2 第一批：让「一句话出图」可演示、视觉质量可�
 
 ### 校验基线
 
-- `npm run verify` 全绿：lint + build + 159 个测试（16 个文件）+ 133 个错误码文档同步。
+- `npm run verify` 全绿：lint + build + 175 个测试（17 个文件）+ 133 个错误码文档同步。
 - 视觉 golden 基线 6 张按新渲染重建后 6/6 PASS（`npm run visual-gate`）。
 
 ## [未发布] — 2026-09-29

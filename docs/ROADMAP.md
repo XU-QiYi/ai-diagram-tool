@@ -21,14 +21,15 @@
 | 项 | 实测值 | 怎么复现 |
 |---|---|---|
 | TypeScript 编译 | 通过，0 error | `npm run build` |
-| 测试 | 159 个测试 / 7 个 suite / 16 个文件，全过，0 失败 | `npm test` |
+| 测试 | 175 个测试 / 7 个 suite / 17 个文件，全过，0 失败 | `npm test` |
 | 示例 | 19 个示例目录，每个含 `.model.json` + `.drawio` + `.svg` | `npm run examples` |
 | 图类型 | 15 种（`src/diagram-types/registry.ts`） | 见 README「这些类型分别适合什么」 |
-| MCP 工具 | 8 个（stdio JSON-RPC，零新增依赖） | `npm run mcp` |
+| MCP 工具 | 8 个（stdio JSON-RPC，零新增依赖）；`npm run mcp:http` 提供 Streamable HTTP 传输（MCP 2025-06-18，无会话，Origin/Host 校验） | `npm run mcp` / `npm run mcp:http` |
 | 运行时依赖 | 3 个：`@elkjs/elkjs` 0.12.0、`mammoth` 1.12.3、`pdfjs-dist` 6.3.289 | `package.json` |
 | 许可证 | 本项目 Apache-2.0；vendored libavoid 为 LGPL-2.1 / Apache-2.0 | `LICENSE`、`NOTICE` |
 
-**没有**的东西（不要假设有）：覆盖率工具、性能基准脚本、UML 符合度评测。
+**没有**的东西（不要假设有）：性能基准脚本、UML 符合度评测。
+覆盖率报告已有（`npm run coverage`，Node 内建，零新增依赖）。
 历史文档里出现的「覆盖率 ~85%」「UML 符合度 79%」「单图 <100ms」都无出处，已随归档失效。
 
 ### 已经成立的核心能力
@@ -106,8 +107,15 @@
       审查位图可用 `rasterizeForReview({ page })` 只导出某一页。
       证据：`tests/render-multipage.test.ts`（页序/id/名称保留、拒绝非 `renderDrawio` 产物）；
       CLI 冒烟：45 节点双容器模型拆成 main/a/b 三部分，`mp-smoke.multipage.drawio` 含 3 个按序 `<diagram>`。
-- [ ] **MCP HTTP 传输**：在 stdio 之外提供 Streamable HTTP 端点，共用同一套
-      `tools.ts` / `guards.ts`，让非本地进程（远端 agent、Web 宿主）也能调用。
+- [x] **MCP HTTP 传输**：`npm run mcp:http` 在同一套 `tools.ts` / `guards.ts` 分发器上
+      提供 Streamable HTTP 端点（`/mcp`，MCP 2025-06-18）。
+      无会话：通知回 202、请求回单个 JSON、GET/DELETE 回 405、批处理回 400
+      （该修订已移除批处理）；`MCP-Protocol-Version` 不支持时回 400。
+      安全按规范三条全做：每个连接校验 `Origin`、默认只绑 `127.0.0.1`、另校验 `Host` 头
+      （DNS 重绑定的第二道墙）；跨机器暴露必须显式设 `DIAGRAM_MCP_HTTP_HOST=0.0.0.0`
+      并配 `DIAGRAM_MCP_HTTP_ORIGIN`。
+      证据：`tests/mcp-http.test.ts` 16 例（握手、202/405/400/404/403/413、真实工具调用、
+      几何走私拒收、来源与主机校验、超大请求体）。
 
 ---
 

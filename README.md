@@ -140,7 +140,7 @@ npm run generate -- --plan output/answer.json --review-findings output/findings.
 
 ## 作为 MCP 服务被调用
 
-`npm run mcp` 启动一个 stdio MCP 服务（零新增依赖），让任何支持 MCP 的 agent 宿主把本流水线当工具调用，而不是自己去拼 Draw.io XML。八个工具按方向分两类——**送出去的只有结构和任务，收回来的必须过闸门**：
+`npm run mcp` 启动一个 stdio MCP 服务（零新增依赖），`npm run mcp:http` 用同一个分发器开 Streamable HTTP 端点——让任何支持 MCP 的 agent 宿主把本流水线当工具调用，而不是自己去拼 Draw.io XML。八个工具按方向分两类——**送出去的只有结构和任务，收回来的必须过闸门**：
 
 | 工具 | 作用 |
 |---|---|
@@ -170,6 +170,12 @@ npm run generate -- --plan output/answer.json --review-findings output/findings.
 ```
 
 开发时想跳过构建，也可以用 `node --import tsx src/mcp/server.ts`；注意 `--import tsx` 是按**进程工作目录**解析 `tsx` 包的，宿主必须把工作目录设成本项目根目录，否则起不来。两种方式都已在 Node v24 下实测握手成功（`initialize` 返回 `serverInfo.name = diagram-mcp`）。
+
+### 或者走 HTTP：`npm run mcp:http`
+
+同一套工具分发器开一个 **Streamable HTTP** 端点（MCP 2025-06-18）：`http://127.0.0.1:3000/mcp`，远程 agent、Web 宿主、跨机器进程都能调用。无会话模式：每次 POST 携带一条 JSON-RPC 消息——通知回 202、请求回单个 JSON；不提供服务端推送（GET 回 405）、无可终止会话（DELETE 回 405）；批处理在 2025-06-18 已被移除，POST 数组回 400；`MCP-Protocol-Version` 头不支持时回 400；请求体上限 10 MB。
+
+安全按规范三条全做：每个连接校验 `Origin` 头（防 DNS 重绑定）、默认只绑 `127.0.0.1`、另校验 `Host` 头。环境变量：`DIAGRAM_MCP_HTTP_PORT`（默认 3000）、`DIAGRAM_MCP_HTTP_HOST`（默认 127.0.0.1）、`DIAGRAM_MCP_HTTP_ORIGIN`（逗号分隔的额外信任来源）。要暴露给其他机器，把 `DIAGRAM_MCP_HTTP_HOST=0.0.0.0` 的同时**必须**设置 `DIAGRAM_MCP_HTTP_ORIGIN`——只放行你信任的来源；两者都没配就想上公网，服务行为不会帮你兜底。
 
 ## 这些类型分别适合什么
 
