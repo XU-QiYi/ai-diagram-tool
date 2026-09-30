@@ -1,5 +1,6 @@
 export * from './types.js';
-import { DIAGRAM_TYPES, REMOVED_CONSTRAINT_KEYS, type Diagram, type Node, type Edge, type Style } from './types.js';
+
+import { DIAGRAM_TYPES, type Diagram, type Edge, type Node, REMOVED_CONSTRAINT_KEYS, type Style } from './types.js';
 
 const STYLE_COLOR_FIELDS = ['fill', 'stroke', 'text'] as const;
 const STYLE_NUMBER_RANGES = {
@@ -45,7 +46,10 @@ function validateStyle(style: Style | undefined, owner: string): void {
   if (!style) return;
   for (const field of STYLE_COLOR_FIELDS) {
     const value = style[field];
-    if (value !== undefined && (!/^(?:#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})|[A-Za-z]+)$/i.test(value) || value.length > 32)) {
+    if (
+      value !== undefined &&
+      (!/^(?:#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})|[A-Za-z]+)$/i.test(value) || value.length > 32)
+    ) {
       throw new Error(`Invalid style ${field} for ${owner}: ${String(value)}`);
     }
   }
@@ -80,34 +84,49 @@ export function createDiagram(input: Omit<Diagram, 'nodes' | 'edges'> & { nodes?
     if (input.constraints && key in input.constraints) {
       throw new Error(
         `constraints.${key} was removed from the model API: it measured inert on elkjs 0.12.0, ` +
-        `so the engine never honored it and keeping the field would promise a lever that does not exist. ` +
-        `Delete "${key}" from your model. To pin a node to the first/last layer use constraints.placement ` +
-        `(FIRST | LAST | FIRST_SEPARATE | LAST_SEPARATE), which is measured to work; to reduce edge crossings ` +
-        `change the structure instead (drop or reroute cross-layer long edges, group nodes into containers, or split the diagram).`,
+          `so the engine never honored it and keeping the field would promise a lever that does not exist. ` +
+          `Delete "${key}" from your model. To pin a node to the first/last layer use constraints.placement ` +
+          `(FIRST | LAST | FIRST_SEPARATE | LAST_SEPARATE), which is measured to work; to reduce edge crossings ` +
+          `change the structure instead (drop or reroute cross-layer long edges, group nodes into containers, or split the diagram).`,
       );
     }
   }
   const nodes = input.nodes ?? [];
   const edges = input.edges ?? [];
   const nodeIds = new Set<string>();
-  for (const n of nodes) { if (nodeIds.has(n.id)) throw new Error(`Duplicate node id: ${n.id}`); nodeIds.add(n.id); }
+  for (const n of nodes) {
+    if (nodeIds.has(n.id)) throw new Error(`Duplicate node id: ${n.id}`);
+    nodeIds.add(n.id);
+  }
   const edgeIds = new Set<string>();
-  for (const e of edges) { if (edgeIds.has(e.id)) throw new Error(`Duplicate edge id: ${e.id}`); edgeIds.add(e.id); }
-  const cellIds=new Set<string>(); const reserve=(id:string,kind:string)=>{if(cellIds.has(id))throw new Error(`Duplicate stable id (${kind}): ${id}`);cellIds.add(id);};
-  for(const n of nodes){reserve(n.id,'node');for(const p of n.ports??[])reserve(p.id,'port');}
-  const nodeById = new Map(nodes.map(node => [node.id, node]));
+  for (const e of edges) {
+    if (edgeIds.has(e.id)) throw new Error(`Duplicate edge id: ${e.id}`);
+    edgeIds.add(e.id);
+  }
+  const cellIds = new Set<string>();
+  const reserve = (id: string, kind: string) => {
+    if (cellIds.has(id)) throw new Error(`Duplicate stable id (${kind}): ${id}`);
+    cellIds.add(id);
+  };
+  for (const n of nodes) {
+    reserve(n.id, 'node');
+    for (const p of n.ports ?? []) reserve(p.id, 'port');
+  }
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
   for (const n of nodes)
     for (const a of n.classMeta?.attributes ?? [])
       if (a.key !== undefined && !KEY_ROLES.has(a.key))
         throw new Error(`Invalid attribute key role "${String(a.key)}" on ${n.id}.${a.name}: expected PK, FK or UK`);
-  for(const e of edges){
-    reserve(e.id,'edge');
+  for (const e of edges) {
+    reserve(e.id, 'edge');
     if (!nodeById.has(e.source)) throw new Error(`Edge ${e.id} references missing node: ${e.source}`);
     if (!nodeById.has(e.target)) throw new Error(`Edge ${e.id} references missing node: ${e.target}`);
-    const sourcePorts = new Set((nodeById.get(e.source)?.ports ?? []).map(port => port.id));
-    const targetPorts = new Set((nodeById.get(e.target)?.ports ?? []).map(port => port.id));
-    if (e.sourcePort && !sourcePorts.has(e.sourcePort)) throw new Error(`Edge ${e.id} sourcePort ${e.sourcePort} does not belong to ${e.source}`);
-    if (e.targetPort && !targetPorts.has(e.targetPort)) throw new Error(`Edge ${e.id} targetPort ${e.targetPort} does not belong to ${e.target}`);
+    const sourcePorts = new Set((nodeById.get(e.source)?.ports ?? []).map((port) => port.id));
+    const targetPorts = new Set((nodeById.get(e.target)?.ports ?? []).map((port) => port.id));
+    if (e.sourcePort && !sourcePorts.has(e.sourcePort))
+      throw new Error(`Edge ${e.id} sourcePort ${e.sourcePort} does not belong to ${e.source}`);
+    if (e.targetPort && !targetPorts.has(e.targetPort))
+      throw new Error(`Edge ${e.id} targetPort ${e.targetPort} does not belong to ${e.target}`);
   }
   const containers = input.containers ?? [];
   const containerIds = new Set<string>();
@@ -173,17 +192,31 @@ export function createDiagram(input: Omit<Diagram, 'nodes' | 'edges'> & { nodes?
   for (const n of nodes) validateStyle(n.style, `node ${n.id}`);
   for (const e of edges) validateStyle(e.style, `edge ${e.id}`);
   for (const c of containers) validateStyle(c.style, `container ${c.id}`);
-  for(const a of input.sequence?.activations??[])reserve(a.id,'activation');
-  for(const f of input.sequence?.fragments??[])reserve(f.id,'fragment');
-  for(const lane of input.activity?.swimlanes??[])reserve(lane.id,'swimlane');
-  for(const composite of input.state?.composites??[])reserve(composite.id,'composite');
-  for(const a of input.deployment?.artifacts??[])reserve(a.id,'artifact');
+  for (const a of input.sequence?.activations ?? []) reserve(a.id, 'activation');
+  for (const f of input.sequence?.fragments ?? []) reserve(f.id, 'fragment');
+  for (const lane of input.activity?.swimlanes ?? []) reserve(lane.id, 'swimlane');
+  for (const composite of input.state?.composites ?? []) reserve(composite.id, 'composite');
+  for (const a of input.deployment?.artifacts ?? []) reserve(a.id, 'artifact');
   return { ...input, nodes, edges };
 }
 
-export function mergeDiagram(base: Diagram, patch: Partial<Diagram> & { addNodes?: Node[]; addEdges?: Edge[]; removeNodeIds?: string[] }): Diagram {
+export function mergeDiagram(
+  base: Diagram,
+  patch: Partial<Diagram> & { addNodes?: Node[]; addEdges?: Edge[]; removeNodeIds?: string[] },
+): Diagram {
   const remove = new Set(patch.removeNodeIds ?? []);
-  const nodes = [...base.nodes.filter(n => !remove.has(n.id)), ...(patch.addNodes ?? [])];
-  const edges = [...base.edges.filter(e => !remove.has(e.source) && !remove.has(e.target)), ...(patch.addEdges ?? [])];
-  return createDiagram({ ...base, ...patch, nodes, edges, addNodes: undefined, addEdges: undefined, removeNodeIds: undefined } as any);
+  const nodes = [...base.nodes.filter((n) => !remove.has(n.id)), ...(patch.addNodes ?? [])];
+  const edges = [
+    ...base.edges.filter((e) => !remove.has(e.source) && !remove.has(e.target)),
+    ...(patch.addEdges ?? []),
+  ];
+  return createDiagram({
+    ...base,
+    ...patch,
+    nodes,
+    edges,
+    addNodes: undefined,
+    addEdges: undefined,
+    removeNodeIds: undefined,
+  } as any);
 }

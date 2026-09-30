@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
-import type { Diagram } from './types.js';
 import { createDiagram } from './index.js';
+import type { Diagram } from './types.js';
 
 export async function loadDiagramModel(file: string): Promise<Diagram> {
   return createDiagram(JSON.parse(await fs.readFile(file, 'utf8')));

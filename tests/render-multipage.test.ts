@@ -1,13 +1,18 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDiagram } from '../src/model/index.js';
+import test from 'node:test';
 import { layoutDiagram } from '../src/layout/elk.js';
+import { createDiagram } from '../src/model/index.js';
 import { renderDrawio, renderDrawioMultiPage } from '../src/render/drawio.js';
 
 async function page(id: string, title: string): Promise<string> {
   const diagram = createDiagram({
-    id, title, type: 'flowchart',
-    nodes: [{ id: 'node.a', label: 'A' }, { id: 'node.b', label: 'B' }],
+    id,
+    title,
+    type: 'flowchart',
+    nodes: [
+      { id: 'node.a', label: 'A' },
+      { id: 'node.b', label: 'B' },
+    ],
     edges: [{ id: 'edge.a-b', source: 'node.a', target: 'node.b', type: 'flow' }],
   });
   return renderDrawio(await layoutDiagram(diagram));

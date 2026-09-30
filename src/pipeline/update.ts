@@ -26,7 +26,7 @@ function mergeById<T extends { id: string }>(
   kind: string,
 ): T[] {
   const remove = new Set(removals ?? []);
-  const result = base.filter(item => !remove.has(item.id)).map(item => ({ ...item }));
+  const result = base.filter((item) => !remove.has(item.id)).map((item) => ({ ...item }));
   const index = new Map(result.map((item, i) => [item.id, i]));
   for (const update of updates ?? []) {
     const at = index.get(update.id);
@@ -34,7 +34,7 @@ function mergeById<T extends { id: string }>(
     result[at] = { ...result[at], ...update } as T;
   }
   for (const item of additions ?? []) {
-    if (index.has(item.id) || result.some(existing => existing.id === item.id))
+    if (index.has(item.id) || result.some((existing) => existing.id === item.id))
       throw new Error(`Cannot add duplicate ${kind}: ${item.id}`);
     index.set(item.id, result.length);
     result.push({ ...item });
@@ -46,46 +46,60 @@ export function applyDiagramPatch(base: Diagram, patch: DiagramPatch): Diagram {
   const removeNodes = new Set(patch.removeNodeIds ?? []);
   const removeContainers = new Set(patch.removeContainerIds ?? []);
   const nodes = mergeById(base.nodes, patch.addNodes, patch.updateNodes, patch.removeNodeIds, 'node');
-  const edges = mergeById(base.edges, patch.addEdges, patch.updateEdges, patch.removeEdgeIds, 'edge')
-    .filter(edge => !removeNodes.has(edge.source) && !removeNodes.has(edge.target));
-  const containers = mergeById(base.containers ?? [], patch.addContainers, patch.updateContainers, patch.removeContainerIds, 'container')
-    .map(container => ({
-      ...container,
-      parentId: container.parentId && !removeContainers.has(container.parentId) ? container.parentId : undefined,
-      containerIds: container.containerIds?.filter(id => !removeContainers.has(id)),
-      nodeIds: container.nodeIds.filter(id => !removeNodes.has(id) && nodes.some(node => node.id === id)),
-    }));
-  const nodeIds = new Set(nodes.map(node => node.id));
+  const edges = mergeById(base.edges, patch.addEdges, patch.updateEdges, patch.removeEdgeIds, 'edge').filter(
+    (edge) => !removeNodes.has(edge.source) && !removeNodes.has(edge.target),
+  );
+  const containers = mergeById(
+    base.containers ?? [],
+    patch.addContainers,
+    patch.updateContainers,
+    patch.removeContainerIds,
+    'container',
+  ).map((container) => ({
+    ...container,
+    parentId: container.parentId && !removeContainers.has(container.parentId) ? container.parentId : undefined,
+    containerIds: container.containerIds?.filter((id) => !removeContainers.has(id)),
+    nodeIds: container.nodeIds.filter((id) => !removeNodes.has(id) && nodes.some((node) => node.id === id)),
+  }));
+  const nodeIds = new Set(nodes.map((node) => node.id));
   const sequence = base.sequence && {
     ...base.sequence,
-    activations: base.sequence.activations?.filter(item => nodeIds.has(item.participantId) && edges.some(edge => edge.id === item.startMessageId)),
-    fragments: base.sequence.fragments?.map(fragment => ({
-      ...fragment,
-      messageIds: fragment.messageIds.filter(id => edges.some(edge => edge.id === id)),
-    })).filter(fragment => fragment.messageIds.length),
+    activations: base.sequence.activations?.filter(
+      (item) => nodeIds.has(item.participantId) && edges.some((edge) => edge.id === item.startMessageId),
+    ),
+    fragments: base.sequence.fragments
+      ?.map((fragment) => ({
+        ...fragment,
+        messageIds: fragment.messageIds.filter((id) => edges.some((edge) => edge.id === id)),
+      }))
+      .filter((fragment) => fragment.messageIds.length),
   };
   const activity = base.activity && {
     ...base.activity,
-    swimlanes: base.activity.swimlanes?.map(lane => ({ ...lane, nodeIds: lane.nodeIds.filter(id => nodeIds.has(id)) })).filter(lane => lane.nodeIds.length),
-    objectFlows: base.activity.objectFlows?.filter(id => edges.some(edge => edge.id === id)),
+    swimlanes: base.activity.swimlanes
+      ?.map((lane) => ({ ...lane, nodeIds: lane.nodeIds.filter((id) => nodeIds.has(id)) }))
+      .filter((lane) => lane.nodeIds.length),
+    objectFlows: base.activity.objectFlows?.filter((id) => edges.some((edge) => edge.id === id)),
   };
   const state = base.state && {
     ...base.state,
-    composites: base.state.composites?.map(composite => ({
-      ...composite,
-      nodeIds: composite.nodeIds.filter(id => nodeIds.has(id)),
-    })).filter(composite => composite.nodeIds.length),
+    composites: base.state.composites
+      ?.map((composite) => ({
+        ...composite,
+        nodeIds: composite.nodeIds.filter((id) => nodeIds.has(id)),
+      }))
+      .filter((composite) => composite.nodeIds.length),
   };
   const deployment = base.deployment && {
     ...base.deployment,
-    artifacts: base.deployment.artifacts?.filter(artifact => nodeIds.has(artifact.deployedOn)),
+    artifacts: base.deployment.artifacts?.filter((artifact) => nodeIds.has(artifact.deployedOn)),
   };
-  const er = base.er && { ...base.er, entities: base.er.entities?.filter(entity => nodeIds.has(entity.nodeId)) };
+  const er = base.er && { ...base.er, entities: base.er.entities?.filter((entity) => nodeIds.has(entity.nodeId)) };
   const chenEr = base.chenEr && {
     ...base.chenEr,
-    entityIds: base.chenEr.entityIds?.filter(id => nodeIds.has(id)),
-    attributeIds: base.chenEr.attributeIds?.filter(id => nodeIds.has(id)),
-    relationshipIds: base.chenEr.relationshipIds?.filter(id => nodeIds.has(id)),
+    entityIds: base.chenEr.entityIds?.filter((id) => nodeIds.has(id)),
+    attributeIds: base.chenEr.attributeIds?.filter((id) => nodeIds.has(id)),
+    relationshipIds: base.chenEr.relationshipIds?.filter((id) => nodeIds.has(id)),
   };
   return createDiagram({
     ...base,

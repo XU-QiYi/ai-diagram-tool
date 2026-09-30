@@ -35,7 +35,9 @@ const CHANNELS = 4;
 
 function paeth(a: number, b: number, c: number): number {
   const p = a + b - c;
-  const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+  const pa = Math.abs(p - a),
+    pb = Math.abs(p - b),
+    pc = Math.abs(p - c);
   return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
 }
 
@@ -48,11 +50,20 @@ function unfilterLine(line: Buffer, bpp: number, previous: Buffer | null): void 
     const up = previous ? previous[i] : 0;
     const upperLeft = previous && i >= bpp ? previous[i - bpp] : 0;
     switch (type) {
-      case 1: pixels[i] = (pixels[i] + left) & 0xff; break;
-      case 2: pixels[i] = (pixels[i] + up) & 0xff; break;
-      case 3: pixels[i] = (pixels[i] + ((left + up) >> 1)) & 0xff; break;
-      case 4: pixels[i] = (pixels[i] + paeth(left, up, upperLeft)) & 0xff; break;
-      default: break; // 0 = None
+      case 1:
+        pixels[i] = (pixels[i] + left) & 0xff;
+        break;
+      case 2:
+        pixels[i] = (pixels[i] + up) & 0xff;
+        break;
+      case 3:
+        pixels[i] = (pixels[i] + ((left + up) >> 1)) & 0xff;
+        break;
+      case 4:
+        pixels[i] = (pixels[i] + paeth(left, up, upperLeft)) & 0xff;
+        break;
+      default:
+        break; // 0 = None
     }
   }
 }
@@ -94,11 +105,15 @@ export function decodePng(bytes: Buffer): Decoded {
 
   const raw = inflateSync(Buffer.concat(idat));
   const channels = colorType === 6 ? 4 : colorType === 2 ? 3 : colorType === 0 ? 1 : 0;
-  if (!channels) throw new Error(`[visual-diff] unsupported colour type ${colorType} (supported: 0 greyscale, 2 truecolour, 6 truecolour+alpha)`);
+  if (!channels)
+    throw new Error(
+      `[visual-diff] unsupported colour type ${colorType} (supported: 0 greyscale, 2 truecolour, 6 truecolour+alpha)`,
+    );
   if (colorType === 3) throw new Error('[visual-diff] palette PNGs are not supported by the golden gate');
 
   const stride = width * channels;
-  if (raw.length < (stride + 1) * height) throw new Error(`[visual-diff] truncated PNG data: ${raw.length} bytes for ${width}x${height}`);
+  if (raw.length < (stride + 1) * height)
+    throw new Error(`[visual-diff] truncated PNG data: ${raw.length} bytes for ${width}x${height}`);
 
   const data = Buffer.alloc(width * height * CHANNELS);
   let previous: Buffer | null = null;
@@ -136,7 +151,9 @@ export function diffPng(baseline: Buffer, actual: Buffer, tolerance = 24): PngDi
   const a = decodePng(baseline);
   const b = decodePng(actual);
   if (a.width !== b.width || a.height !== b.height) {
-    throw new Error(`[visual-diff] size mismatch: baseline ${a.width}x${a.height}, actual ${b.width}x${b.height} — the diagram changed shape, regenerate the baseline`);
+    throw new Error(
+      `[visual-diff] size mismatch: baseline ${a.width}x${a.height}, actual ${b.width}x${b.height} — the diagram changed shape, regenerate the baseline`,
+    );
   }
 
   let differing = 0;
@@ -146,14 +163,22 @@ export function diffPng(baseline: Buffer, actual: Buffer, tolerance = 24): PngDi
       const delta = Math.abs(a.data[at + c] - b.data[at + c]);
       if (delta > maxDelta) maxDelta = delta;
     }
-    if (Math.abs(a.data[at] - b.data[at]) > tolerance
-      || Math.abs(a.data[at + 1] - b.data[at + 1]) > tolerance
-      || Math.abs(a.data[at + 2] - b.data[at + 2]) > tolerance
-      || Math.abs(a.data[at + 3] - b.data[at + 3]) > tolerance) {
+    if (
+      Math.abs(a.data[at] - b.data[at]) > tolerance ||
+      Math.abs(a.data[at + 1] - b.data[at + 1]) > tolerance ||
+      Math.abs(a.data[at + 2] - b.data[at + 2]) > tolerance ||
+      Math.abs(a.data[at + 3] - b.data[at + 3]) > tolerance
+    ) {
       differing++;
     }
   }
 
   const pixels = a.width * a.height;
-  return { width: a.width, height: a.height, differingPixels: differing, maxDelta, ratio: differing / Math.max(1, pixels) };
+  return {
+    width: a.width,
+    height: a.height,
+    differingPixels: differing,
+    maxDelta,
+    ratio: differing / Math.max(1, pixels),
+  };
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import http from 'node:http';
 import fs from 'node:fs/promises';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
@@ -29,7 +29,10 @@ after(async () => {
 
 const endpoint = () => `http://127.0.0.1:${port}/mcp`;
 
-async function post(body: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: any; text: string }> {
+async function post(
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<{ status: number; json: any; text: string }> {
   const response = await fetch(endpoint(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
@@ -58,7 +61,12 @@ function rawRequest(
 }
 
 test('initialize negotiates the protocol version over Streamable HTTP', async () => {
-  const { status, json } = await post({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } });
+  const { status, json } = await post({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'initialize',
+    params: { protocolVersion: '2025-06-18' },
+  });
   assert.equal(status, 200);
   assert.equal(json.result.protocolVersion, '2025-06-18');
   assert.equal(json.result.serverInfo.name, 'diagram-mcp');
@@ -81,7 +89,12 @@ test('tools/list answers over HTTP', async () => {
 });
 
 test('diagram_generate runs the real pipeline through HTTP', async () => {
-  const { status, json } = await post({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'diagram_generate', arguments: { chain: true, text: '流程图：下单 -> 发货' } } });
+  const { status, json } = await post({
+    jsonrpc: '2.0',
+    id: 3,
+    method: 'tools/call',
+    params: { name: 'diagram_generate', arguments: { chain: true, text: '流程图：下单 -> 发货' } },
+  });
   assert.equal(status, 200);
   assert.equal(json.result.isError, undefined);
   const payload = JSON.parse(json.result.content[0].text);
@@ -92,8 +105,21 @@ test('diagram_generate runs the real pipeline through HTTP', async () => {
 
 test('geometry smuggling is refused through HTTP exactly like through stdio', async () => {
   const { status, json } = await post({
-    jsonrpc: '2.0', id: 4, method: 'tools/call',
-    params: { name: 'diagram_render', arguments: { model: { id: 'sneaky', title: 'Sneaky', type: 'flowchart', nodes: [{ id: 'node.a', label: 'A', x: 10 }], edges: [] } } },
+    jsonrpc: '2.0',
+    id: 4,
+    method: 'tools/call',
+    params: {
+      name: 'diagram_render',
+      arguments: {
+        model: {
+          id: 'sneaky',
+          title: 'Sneaky',
+          type: 'flowchart',
+          nodes: [{ id: 'node.a', label: 'A', x: 10 }],
+          edges: [],
+        },
+      },
+    },
   });
   assert.equal(status, 200);
   assert.equal(json.result.isError, true);
@@ -112,7 +138,10 @@ test('DELETE answers 405: the server is stateless and holds no sessions', async 
 });
 
 test('JSON-RPC batching (removed in 2025-06-18) is rejected with 400', async () => {
-  const { status, json } = await post([{ jsonrpc: '2.0', id: 1, method: 'ping' }, { jsonrpc: '2.0', id: 2, method: 'ping' }]);
+  const { status, json } = await post([
+    { jsonrpc: '2.0', id: 1, method: 'ping' },
+    { jsonrpc: '2.0', id: 2, method: 'ping' },
+  ]);
   assert.equal(status, 400);
   assert.equal(json.error.code, -32600);
 });
@@ -137,7 +166,12 @@ test('a JSON-RPC response frame (no method) is accepted and discarded with 202',
 test('unknown paths answer 404', async () => {
   const { status } = await post({ jsonrpc: '2.0', id: 1, method: 'ping' }, {});
   assert.equal(status, 200);
-  const raw = await rawRequest('POST', '/other', { 'Content-Type': 'application/json' }, Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' })));
+  const raw = await rawRequest(
+    'POST',
+    '/other',
+    { 'Content-Type': 'application/json' },
+    Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' })),
+  );
   assert.equal(raw.status, 404);
 });
 
@@ -158,7 +192,12 @@ test('foreign origins are rejected; loopback origins and originless requests pas
 });
 
 test('a rebound Host header is rejected even without an Origin header', async () => {
-  const raw = await rawRequest('POST', '/mcp', { 'Content-Type': 'application/json', Host: 'evil.example' }, Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' })));
+  const raw = await rawRequest(
+    'POST',
+    '/mcp',
+    { 'Content-Type': 'application/json', Host: 'evil.example' },
+    Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' })),
+  );
   assert.equal(raw.status, 403);
 });
 

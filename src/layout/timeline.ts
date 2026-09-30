@@ -1,6 +1,6 @@
-import type { Diagram, LayoutEdge, LayoutNode, LayoutResult } from "../model/types.js";
-import { measureNode } from "../utils/text.js";
-import { validateLayout } from "../validate/index.js";
+import type { Diagram, LayoutEdge, LayoutNode, LayoutResult } from '../model/types.js';
+import { measureNode } from '../utils/text.js';
+import { validateLayout } from '../validate/index.js';
 
 /**
  * A timeline is a sequence on one shared axis, not a layered graph — ELK layered rendered
@@ -54,7 +54,7 @@ export function timelineLayout(diagram: Diagram): LayoutResult {
     height: 280,
     warnings: [],
     iterations: 1,
-    status: "passed",
+    status: 'passed',
   };
   // The dedicated path answers to the same validator as the ELK path, with the same
   // status convention as its iterationStatus(): ERROR → failed, WARNING →
@@ -64,10 +64,10 @@ export function timelineLayout(diagram: Diagram): LayoutResult {
   return {
     ...result,
     issues: report.issues,
-    status: report.issues.some((i) => i.severity === "ERROR")
-      ? "failed_composition_needed"
-      : report.issues.some((i) => i.severity === "WARNING")
-        ? "passed_with_warnings"
-        : "passed",
+    status: report.issues.some((i) => i.severity === 'ERROR')
+      ? 'failed_composition_needed'
+      : report.issues.some((i) => i.severity === 'WARNING')
+        ? 'passed_with_warnings'
+        : 'passed',
   };
 }

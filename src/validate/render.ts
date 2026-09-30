@@ -30,13 +30,19 @@ function issue(code: string, message: string, elementId?: string): ValidationIss
 /** Validate renderer output without adding a heavyweight XML dependency. */
 export function validateRenderOutputs(layout: LayoutResult, drawio: string, svg: string): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  if (!isBalancedMarkup(drawio, 'mxfile')) issues.push(issue('DRAWIO_INVALID_XML', 'Draw.io output is not balanced XML'));
-  if (!drawio.includes('<mxGraphModel ') || !drawio.includes('<root>')) issues.push(issue('DRAWIO_MISSING_GRAPH_MODEL', 'Draw.io output is missing mxGraphModel/root structure'));
+  if (!isBalancedMarkup(drawio, 'mxfile'))
+    issues.push(issue('DRAWIO_INVALID_XML', 'Draw.io output is not balanced XML'));
+  if (!drawio.includes('<mxGraphModel ') || !drawio.includes('<root>'))
+    issues.push(issue('DRAWIO_MISSING_GRAPH_MODEL', 'Draw.io output is missing mxGraphModel/root structure'));
   for (const element of [...layout.nodes, ...layout.edges]) {
     const escapedId = escapeAttribute(element.id);
-    if (!drawio.includes(`id="${escapedId}"`)) issues.push(issue('DRAWIO_MISSING_ELEMENT_ID', `Draw.io output is missing stable element ID: ${element.id}`, element.id));
+    if (!drawio.includes(`id="${escapedId}"`))
+      issues.push(
+        issue('DRAWIO_MISSING_ELEMENT_ID', `Draw.io output is missing stable element ID: ${element.id}`, element.id),
+      );
   }
   if (!isBalancedMarkup(svg, 'svg')) issues.push(issue('SVG_INVALID_XML', 'SVG output is not balanced XML'));
-  if (!/<svg\b[^>]*\bviewBox="[^"]+"/.test(svg)) issues.push(issue('SVG_MISSING_VIEWBOX', 'SVG output is missing a viewBox'));
+  if (!/<svg\b[^>]*\bviewBox="[^"]+"/.test(svg))
+    issues.push(issue('SVG_MISSING_VIEWBOX', 'SVG output is missing a viewBox'));
   return issues;
 }

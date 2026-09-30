@@ -1,10 +1,10 @@
 import fs from 'node:fs/promises';
-import path from 'node:path';
 import { createRequire } from 'node:module';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { layoutDiagram } from '../src/layout/elk.js';
-import { renderDrawio, renderSvg } from '../src/render/index.js';
 import type { Diagram, Edge, Node, Style } from '../src/model/types.js';
+import { renderDrawio, renderSvg } from '../src/render/index.js';
 
 const require = createRequire(import.meta.url);
 
@@ -18,12 +18,53 @@ const rootPad = 32; // ELK 图内边距（顶部需容纳 20px 标题）
 const compactTriggers = ['Node overlap', 'Edge through node', 'Canvas overflow', 'Text overflow'];
 
 const base: Style = { fill: '#FFFFFF', stroke: '#000000', text: '#000000' };
-const boxStyle: Style = { ...base, shape: 'shape=rectangle;rounded=0', fontSize: 10, lineHeight: 12, paddingX: 4, minWidth: 40, strokeWidth: 1.1 };
-const entityStyle: Style = { ...base, shape: 'shape=rectangle;rounded=0', fontSize: 11, lineHeight: 12, paddingX: 4, minWidth: 50, minHeight: 22, strokeWidth: 1.1 };
-const attributeStyle: Style = { ...base, shape: 'shape=ellipse', fontSize: 11, lineHeight: 12, paddingX: 4, minWidth: 56, minHeight: 22, strokeWidth: 1 };
-const relationshipStyle: Style = { ...base, shape: 'shape=rhombus', fontSize: 11, lineHeight: 12, paddingX: 4, minWidth: 44, minHeight: 24, strokeWidth: 1 };
+const boxStyle: Style = {
+  ...base,
+  shape: 'shape=rectangle;rounded=0',
+  fontSize: 10,
+  lineHeight: 12,
+  paddingX: 4,
+  minWidth: 40,
+  strokeWidth: 1.1,
+};
+const entityStyle: Style = {
+  ...base,
+  shape: 'shape=rectangle;rounded=0',
+  fontSize: 11,
+  lineHeight: 12,
+  paddingX: 4,
+  minWidth: 50,
+  minHeight: 22,
+  strokeWidth: 1.1,
+};
+const attributeStyle: Style = {
+  ...base,
+  shape: 'shape=ellipse',
+  fontSize: 11,
+  lineHeight: 12,
+  paddingX: 4,
+  minWidth: 56,
+  minHeight: 22,
+  strokeWidth: 1,
+};
+const relationshipStyle: Style = {
+  ...base,
+  shape: 'shape=rhombus',
+  fontSize: 11,
+  lineHeight: 12,
+  paddingX: 4,
+  minWidth: 44,
+  minHeight: 24,
+  strokeWidth: 1,
+};
 
-const entityNode = (id: string, label: string): Node => ({ id: `entity.${id}`, label, kind: 'entity', style: entityStyle, height: 22 });
+const entityNode = (id: string, label: string): Node => ({
+  id: `entity.${id}`,
+  label,
+  kind: 'entity',
+  style: entityStyle,
+  height: 22,
+});
 const attributeNode = (entity: string, id: string, label: string, key = false): Node => ({
   id: `attribute.${entity}.${id}`,
   label,
@@ -31,19 +72,71 @@ const attributeNode = (entity: string, id: string, label: string, key = false): 
   style: attributeStyle,
   height: 22,
 });
-const relationshipNode = (id: string, label: string): Node => ({ id: `relationship.${id}`, label, kind: 'relationship', style: relationshipStyle, height: 24 });
-const association = (id: string, source: string, target: string, label?: string): Edge => ({ id, source, target, type: 'association', label });
+const relationshipNode = (id: string, label: string): Node => ({
+  id: `relationship.${id}`,
+  label,
+  kind: 'relationship',
+  style: relationshipStyle,
+  height: 24,
+});
+const association = (id: string, source: string, target: string, label?: string): Edge => ({
+  id,
+  source,
+  target,
+  type: 'association',
+  label,
+});
 
 function coreEntityDiagram(): Diagram {
   const nodes: Node[] = [
-    { id: 'entity.user', label: '用户 user\nPK id\nusername\nrole\ncredit_score\ntoken_version\ncreate_time', kind: 'database', style: boxStyle },
-    { id: 'entity.tool', label: '工具 tool\nPK id\nFK owner_id\nFK category_id\nname\ndeposit\nstatus\nview_count', kind: 'database', style: boxStyle },
-    { id: 'entity.rental-order', label: '租借订单 rental_order\nPK id\nFK tool_id\nFK borrower_id\nFK owner_id\nstart_time / end_time\nextend_status\nstatus\ndeposit / deposit_original', kind: 'database', style: boxStyle },
+    {
+      id: 'entity.user',
+      label: '用户 user\nPK id\nusername\nrole\ncredit_score\ntoken_version\ncreate_time',
+      kind: 'database',
+      style: boxStyle,
+    },
+    {
+      id: 'entity.tool',
+      label: '工具 tool\nPK id\nFK owner_id\nFK category_id\nname\ndeposit\nstatus\nview_count',
+      kind: 'database',
+      style: boxStyle,
+    },
+    {
+      id: 'entity.rental-order',
+      label:
+        '租借订单 rental_order\nPK id\nFK tool_id\nFK borrower_id\nFK owner_id\nstart_time / end_time\nextend_status\nstatus\ndeposit / deposit_original',
+      kind: 'database',
+      style: boxStyle,
+    },
   ];
   const edges: Edge[] = [
-    { id: 'entity-edge.user-tool', source: 'entity.user', target: 'entity.tool', type: 'association', label: '发布 1:N', sourceMultiplicity: '1', targetMultiplicity: '0..*' },
-    { id: 'entity-edge.user-order', source: 'entity.user', target: 'entity.rental-order', type: 'association', label: '借用/处理 1:N', sourceMultiplicity: '1', targetMultiplicity: '0..*' },
-    { id: 'entity-edge.tool-order', source: 'entity.tool', target: 'entity.rental-order', type: 'association', label: '产生 1:N', sourceMultiplicity: '1', targetMultiplicity: '0..*' },
+    {
+      id: 'entity-edge.user-tool',
+      source: 'entity.user',
+      target: 'entity.tool',
+      type: 'association',
+      label: '发布 1:N',
+      sourceMultiplicity: '1',
+      targetMultiplicity: '0..*',
+    },
+    {
+      id: 'entity-edge.user-order',
+      source: 'entity.user',
+      target: 'entity.rental-order',
+      type: 'association',
+      label: '借用/处理 1:N',
+      sourceMultiplicity: '1',
+      targetMultiplicity: '0..*',
+    },
+    {
+      id: 'entity-edge.tool-order',
+      source: 'entity.tool',
+      target: 'entity.rental-order',
+      type: 'association',
+      label: '产生 1:N',
+      sourceMultiplicity: '1',
+      targetMultiplicity: '0..*',
+    },
   ];
   return {
     id: '01-core-entities',
@@ -51,7 +144,16 @@ function coreEntityDiagram(): Diagram {
     type: 'er',
     direction: 'LEFT_TO_RIGHT',
     routing: 'ORTHOGONAL',
-    layout: { density: 'balanced', nodeSpacing: 14, layerSpacing: 20, targetAspectRatio: 2.6, svgPad, rootPadding: rootPad, edgeLabelFontSize: 10, relayoutTriggers: compactTriggers },
+    layout: {
+      density: 'balanced',
+      nodeSpacing: 14,
+      layerSpacing: 20,
+      targetAspectRatio: 2.6,
+      svgPad,
+      rootPadding: rootPad,
+      edgeLabelFontSize: 10,
+      relayoutTriggers: compactTriggers,
+    },
     theme: { name: 'monochrome', showLegend: false },
     nodes,
     edges,
@@ -106,7 +208,9 @@ function fullErDiagram(): Diagram {
   const relationshipNodes = relationshipDefinitions.map(([id, label]) => relationshipNode(id, label));
   const nodes: Node[] = [...entityNodes, ...attributeNodes, ...relationshipNodes];
   const edges: Edge[] = [
-    ...attributeDefinitions.map(([entity, id]) => association(`attribute-edge.${entity}.${id}`, `entity.${entity}`, `attribute.${entity}.${id}`)),
+    ...attributeDefinitions.map(([entity, id]) =>
+      association(`attribute-edge.${entity}.${id}`, `entity.${entity}`, `attribute.${entity}.${id}`),
+    ),
     ...relationshipDefinitions.flatMap(([id, , source, target, sourceCard, targetCard]) => [
       association(`relationship-edge.${id}.source`, `entity.${source}`, `relationship.${id}`, sourceCard),
       association(`relationship-edge.${id}.target`, `relationship.${id}`, `entity.${target}`, targetCard),
@@ -118,7 +222,17 @@ function fullErDiagram(): Diagram {
     type: 'chen-er',
     direction: 'TOP_TO_BOTTOM',
     routing: 'ORTHOGONAL',
-    layout: { density: 'balanced', nodeSpacing: 9, layerSpacing: 13, targetAspectRatio: 1.3, svgPad, rootPadding: 26, edgeLabelFontSize: 9, algorithm: 'layered', relayoutTriggers: compactTriggers },
+    layout: {
+      density: 'balanced',
+      nodeSpacing: 9,
+      layerSpacing: 13,
+      targetAspectRatio: 1.3,
+      svgPad,
+      rootPadding: 26,
+      edgeLabelFontSize: 9,
+      algorithm: 'layered',
+      relayoutTriggers: compactTriggers,
+    },
     theme: { name: 'monochrome', showLegend: false },
     // 信用规则放到末列侧栏，与主图实体阵列隔离
     constraints: { placement: { 'entity.credit-rule': 'LAST_SEPARATE' } },
@@ -189,12 +303,24 @@ function logicalDiagram(): Diagram {
     type: 'er',
     direction: 'TOP_TO_BOTTOM',
     routing: 'ORTHOGONAL',
-    layout: { density: 'balanced', nodeSpacing: 12, layerSpacing: 12, targetAspectRatio: 1.1, svgPad, rootPadding: 28, edgeLabelFontSize: 9, relayoutTriggers: compactTriggers },
+    layout: {
+      density: 'balanced',
+      nodeSpacing: 12,
+      layerSpacing: 12,
+      targetAspectRatio: 1.1,
+      svgPad,
+      rootPadding: 28,
+      edgeLabelFontSize: 9,
+      relayoutTriggers: compactTriggers,
+    },
     theme: { name: 'monochrome', showLegend: false },
     constraints: {
       // 无外键约束的 5 张治理/配置表统一压到末列，避免散点撑大画布
       placement: Object.fromEntries(
-        ['credit-rule', 'admin-operation-log', 'tool-report', 'credit-appeal', 'dispute'].map((id) => [`table.${id}`, 'LAST_SEPARATE']),
+        ['credit-rule', 'admin-operation-log', 'tool-report', 'credit-appeal', 'dispute'].map((id) => [
+          `table.${id}`,
+          'LAST_SEPARATE',
+        ]),
       ),
     },
     nodes,
@@ -246,7 +372,11 @@ async function writeDiagram(diagram: Diagram): Promise<Record<string, unknown>> 
     iterations: layout.iterations,
     svg: { width: png.svgWidth, height: png.svgHeight },
     png: { width: png.width, height: png.height },
-    effectivePtAt17cm: { box: effectiveFont(png.svgWidth, 10), entity: effectiveFont(png.svgWidth, 11), edgeLabel: effectiveFont(png.svgWidth, 9) },
+    effectivePtAt17cm: {
+      box: effectiveFont(png.svgWidth, 10),
+      entity: effectiveFont(png.svgWidth, 11),
+      edgeLabel: effectiveFont(png.svgWidth, 9),
+    },
   };
 }
 
@@ -257,8 +387,11 @@ async function main(): Promise<void> {
   }
   await fs.writeFile(path.join(outputDir, 'validation.json'), JSON.stringify(results, null, 2), 'utf8');
   for (const result of results) {
-    console.log(`[DATABASE REPORT] ${result.id}: ${result.nodes} nodes, ${result.edges} edges, ${result.iterations} iteration(s), svg ${result.svg.width}x${result.svg.height}, png ${result.png.width}x${result.png.height}, effPt ${JSON.stringify(result.effectivePtAt17cm)}`);
-    if ((result.warnings as string[]).length) console.warn(`[DATABASE REPORT WARNING] ${result.id}: ${(result.warnings as string[]).join('; ')}`);
+    console.log(
+      `[DATABASE REPORT] ${result.id}: ${result.nodes} nodes, ${result.edges} edges, ${result.iterations} iteration(s), svg ${result.svg.width}x${result.svg.height}, png ${result.png.width}x${result.png.height}, effPt ${JSON.stringify(result.effectivePtAt17cm)}`,
+    );
+    if ((result.warnings as string[]).length)
+      console.warn(`[DATABASE REPORT WARNING] ${result.id}: ${(result.warnings as string[]).join('; ')}`);
   }
 }
 

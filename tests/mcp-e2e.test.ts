@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { type ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { runCli } from '../src/cli.js';
 import { resolveWorkspaceRoot } from '../src/mcp/server.js';
 import { resolveDrawioExecutable } from '../src/render/png.js';
-import { runCli } from '../src/cli.js';
 
 /**
  * End-to-end over a real stdio session: a caller that shares nothing with this process
@@ -32,8 +32,20 @@ function answer() {
         { id: 'node.db', label: '数据库', kind: 'database', provenance: evidence('数据库') },
       ],
       edges: [
-        { id: 'edge.user-order', source: 'node.user', target: 'node.order', type: 'flow', provenance: evidence('用户调用订单服务') },
-        { id: 'edge.order-db', source: 'node.order', target: 'node.db', type: 'flow', provenance: evidence('订单服务写入数据库') },
+        {
+          id: 'edge.user-order',
+          source: 'node.user',
+          target: 'node.order',
+          type: 'flow',
+          provenance: evidence('用户调用订单服务'),
+        },
+        {
+          id: 'edge.order-db',
+          source: 'node.order',
+          target: 'node.db',
+          type: 'flow',
+          provenance: evidence('订单服务写入数据库'),
+        },
       ],
     },
     confidence: 0.95,
@@ -41,7 +53,13 @@ function answer() {
   };
 }
 
-interface Frame { id?: number; method?: string; params?: unknown; result?: any; error?: { code: number; message: string } }
+interface Frame {
+  id?: number;
+  method?: string;
+  params?: unknown;
+  result?: any;
+  error?: { code: number; message: string };
+}
 
 function startServer(entry: string, toolsRoot: string) {
   const child: ChildProcess = spawn(process.execPath, entry.endsWith('.ts') ? ['--import', 'tsx', entry] : [entry], {
@@ -64,17 +82,22 @@ function startServer(entry: string, toolsRoot: string) {
       if (at < 0) break;
       const line = buffer.slice(0, at).trim();
       buffer = buffer.slice(at + 1);
-      if (line) { lines.push(line); waiters.shift()?.(); }
+      if (line) {
+        lines.push(line);
+        waiters.shift()?.();
+      }
     }
   });
   child.stderr!.setEncoding('utf8');
-  child.stderr!.on('data', (chunk: string) => { stderr += chunk; });
+  child.stderr!.on('data', (chunk: string) => {
+    stderr += chunk;
+  });
 
   const next = async (timeoutMs = 240_000): Promise<Frame> => {
     const deadline = Date.now() + timeoutMs;
     while (!lines.length) {
       if (Date.now() > deadline) throw new Error(`no frame within ${timeoutMs}ms; stderr=${stderr.slice(0, 400)}`);
-      await new Promise<void>(resolve => waiters.push(resolve));
+      await new Promise<void>((resolve) => waiters.push(resolve));
     }
     return JSON.parse(lines.shift() as string) as Frame;
   };
@@ -97,7 +120,7 @@ function startServer(entry: string, toolsRoot: string) {
     child.kill();
     // A child that already exited never emits 'close', so resolve immediately in that
     // case; otherwise this await hangs the whole run.
-    await new Promise(resolve => {
+    await new Promise((resolve) => {
       if (child.exitCode !== null || child.signalCode !== null) resolve(null);
       else child.once('close', () => resolve(null));
     });
@@ -107,7 +130,11 @@ function startServer(entry: string, toolsRoot: string) {
 }
 
 async function handshake(server: ReturnType<typeof startServer>, name: string) {
-  await server.request(1, 'initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name, version: '1' } });
+  await server.request(1, 'initialize', {
+    protocolVersion: '2024-11-05',
+    capabilities: {},
+    clientInfo: { name, version: '1' },
+  });
   server.notify('notifications/initialized');
 }
 
@@ -136,16 +163,35 @@ test('stdio session drives plan -> submit -> review -> apply and writes editable
     });
     assert.equal(submitted.written.valid, true, JSON.stringify(submitted.written.issues));
     assert.equal(submitted.written.evidence.verified, 5, 'each quote is re-verified against the request');
-    assert.ok(submitted.written.files.drawio.startsWith(workspace), `artifact escaped the workspace: ${submitted.written.files.drawio}`);
+    assert.ok(
+      submitted.written.files.drawio.startsWith(workspace),
+      `artifact escaped the workspace: ${submitted.written.files.drawio}`,
+    );
 
-    const review = await server.call('diagram_review_request', { modelPath: 'built/wire-order-flow.model.json', out: 'review', maxRounds: 3 });
+    const review = await server.call('diagram_review_request', {
+      modelPath: 'built/wire-order-flow.model.json',
+      out: 'review',
+      maxRounds: 3,
+    });
     assert.ok((await fs.stat(review.task.pngPath)).size > 1_000, 'the review bitmap must be a real image');
     assert.equal(review.reviewBudget.maxRounds, 3, 'the caller may widen the round budget');
     assert.ok(review.task.allowedFields.includes('nodeSpacing'));
 
     const applied = await server.call('diagram_review_submit', {
       model: JSON.parse(await fs.readFile(path.join(workspace, 'built', 'wire-order-flow.model.json'), 'utf8')),
-      findings: { findings: [{ code: 'VISUAL_CROWDED', elementId: 'node.order', severity: 'ERROR', observation: 'boxes sit too close', hint: 'increase nodeSpacing', x: 5, y: 5 }] },
+      findings: {
+        findings: [
+          {
+            code: 'VISUAL_CROWDED',
+            elementId: 'node.order',
+            severity: 'ERROR',
+            observation: 'boxes sit too close',
+            hint: 'increase nodeSpacing',
+            x: 5,
+            y: 5,
+          },
+        ],
+      },
       out: 'reviewed',
     });
     assert.match(JSON.stringify(applied.applied), /nodeSpacing/, 'an accepted finding must move a layout preference');
@@ -164,7 +210,12 @@ test('stdio session drives plan -> submit -> review -> apply and writes editable
 
 test('the compiled entry that MiMo registers exposes the same eight tools', async () => {
   const distEntry = path.join(projectRoot, 'dist', 'src', 'mcp', 'server.js');
-  if (!(await fs.stat(distEntry).then(() => true, () => false))) {
+  if (
+    !(await fs.stat(distEntry).then(
+      () => true,
+      () => false,
+    ))
+  ) {
     console.log('SKIPPED: dist/src/mcp/server.js is absent — run `npm run build` first; this is not a pass');
     return;
   }
@@ -172,10 +223,16 @@ test('the compiled entry that MiMo registers exposes the same eight tools', asyn
   try {
     await handshake(server, 'e2e-dist');
     const listed = await server.request(2, 'tools/list', {});
-    assert.deepEqual(
-      (listed.result as { tools: Array<{ name: string }> }).tools.map(tool => tool.name).sort(),
-      ['diagram_generate', 'diagram_patch', 'diagram_plan_request', 'diagram_plan_submit', 'diagram_render', 'diagram_review_request', 'diagram_review_submit', 'diagram_validate'],
-    );
+    assert.deepEqual((listed.result as { tools: Array<{ name: string }> }).tools.map((tool) => tool.name).sort(), [
+      'diagram_generate',
+      'diagram_patch',
+      'diagram_plan_request',
+      'diagram_plan_submit',
+      'diagram_render',
+      'diagram_review_request',
+      'diagram_review_submit',
+      'diagram_validate',
+    ]);
   } finally {
     await server.close();
   }
@@ -183,11 +240,11 @@ test('the compiled entry that MiMo registers exposes the same eight tools', asyn
 
 test('draw.io renders every bundled example it is given (renderer compatibility smoke)', async () => {
   const exampleDirs = (await fs.readdir(path.join(projectRoot, 'examples'), { withFileTypes: true }))
-    .filter(entry => entry.isDirectory())
-    .map(entry => path.join(projectRoot, 'examples', entry.name));
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(projectRoot, 'examples', entry.name));
   const models: Array<{ name: string; model: unknown }> = [];
   for (const dir of exampleDirs) {
-    const file = (await fs.readdir(dir)).find(name => name.endsWith('.model.json'));
+    const file = (await fs.readdir(dir)).find((name) => name.endsWith('.model.json'));
     if (file) models.push({ name: file, model: JSON.parse(await fs.readFile(path.join(dir, file), 'utf8')) });
   }
   assert.ok(models.length >= 15, `expected the bundled examples, found ${models.length}`);
@@ -201,7 +258,11 @@ test('draw.io renders every bundled example it is given (renderer compatibility 
       assert.ok(task.task.width > 0 && task.task.height > 0, `${name} produced no bitmap`);
       assert.ok(task.task.elementIds.length >= 2, `${name} offered no ids to review`);
       if (detection.kind === 'resolved') {
-        assert.equal(task.task.backend, 'drawio-cli', `${name} must be reviewed through the real Draw.io renderer while draw.io is installed`);
+        assert.equal(
+          task.task.backend,
+          'drawio-cli',
+          `${name} must be reviewed through the real Draw.io renderer while draw.io is installed`,
+        );
       }
     }
   } finally {
@@ -212,7 +273,14 @@ test('draw.io renders every bundled example it is given (renderer compatibility 
 test('retired model flags fail with a migration message instead of being ignored', async () => {
   const dir = path.join(workspace, 'retired');
   assert.equal(await runCli(['generate', '--text', REQUEST, '--visual-review', '--out', dir]), 1);
-  assert.equal(await fs.stat(dir).then(() => true, () => false), false, 'a refused flag must not write anything');
+  assert.equal(
+    await fs.stat(dir).then(
+      () => true,
+      () => false,
+    ),
+    false,
+    'a refused flag must not write anything',
+  );
 });
 
 test('a drive-root workspace is refused before any write can fail with EPERM', () => {

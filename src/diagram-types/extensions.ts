@@ -1,41 +1,341 @@
 import { createDiagram } from '../model/index.js';
 import type { Diagram, DiagramType } from '../model/types.js';
 
-const extension = (type: DiagramType, title: string, direction: Diagram['direction'], nodes: Diagram['nodes'], edges: Diagram['edges']): Diagram => createDiagram({ id: `generated-${type}`, title, type, direction, nodes, edges });
+const extension = (
+  type: DiagramType,
+  title: string,
+  direction: Diagram['direction'],
+  nodes: Diagram['nodes'],
+  edges: Diagram['edges'],
+): Diagram => createDiagram({ id: `generated-${type}`, title, type, direction, nodes, edges });
 
-export function sequenceDiagram(title = 'Sequence Diagram'): Diagram { return { ...extension('sequence', title, 'LEFT_TO_RIGHT', [
-  { id: 'participant.client', label: 'Client', kind: 'participant' }, { id: 'participant.service', label: 'Service', kind: 'participant' }, { id: 'participant.db', label: 'Database', kind: 'participant' }
-], [{ id: 'message.client-service', source: 'participant.client', target: 'participant.service', label: 'request()', type: 'flow', messageKind: 'call' }, { id: 'message.service-db', source: 'participant.service', target: 'participant.db', label: 'query()', type: 'flow', messageKind: 'call' }, { id: 'message.db-service', source: 'participant.db', target: 'participant.service', label: 'result', type: 'flow', messageKind: 'return' }]), sequence: { activations: [{ id: 'activation.service', participantId: 'participant.service', startMessageId: 'message.client-service', endMessageId: 'message.db-service' }], fragments: [{ id: 'fragment.alt', operator: 'alt', guard: 'valid request', messageIds: ['message.client-service', 'message.service-db'] }] } }; }
-export function stateDiagram(title = 'State Diagram'): Diagram { return { ...extension('state', title, 'LEFT_TO_RIGHT', [
-  { id: 'state.initial', label: 'Initial', kind: 'start' }, { id: 'state.pending', label: 'Pending', kind: 'state' }, { id: 'state.active', label: 'Active', kind: 'state' }, { id: 'state.closed', label: 'Closed', kind: 'end' }
-], [{ id: 'transition.initial-pending', source: 'state.initial', target: 'state.pending', type: 'flow' }, { id: 'transition.pending-active', source: 'state.pending', target: 'state.active', label: '[approved] / activate', guard: '[approved]', action: 'activate', type: 'flow' }, { id: 'transition.active-closed', source: 'state.active', target: 'state.closed', label: 'complete / close', action: 'close', type: 'flow' }]), state: { composites: [{ id: 'composite.order', label: 'Order Lifecycle', nodeIds: ['state.initial', 'state.pending', 'state.active', 'state.closed'] }] } }; }
-export function stateMachineDiagram(title = 'UML State Machine Diagram'): Diagram { return { ...extension('state-machine', title, 'TOP_TO_BOTTOM', [
-  { id: 'machine.initial', label: 'Initial', kind: 'start' },
-  { id: 'machine.idle', label: 'Idle', kind: 'state', stateBehavior: { entry: 'reset()', do: 'waitForRequest()' } },
-  { id: 'machine.processing', label: 'Processing', kind: 'state', stateBehavior: { entry: 'startTimer()', do: 'process()', exit: 'stopTimer()' } },
-  { id: 'machine.completed', label: 'Completed', kind: 'state', stateBehavior: { entry: 'notifyResult()' } },
-  { id: 'machine.failed', label: 'Failed', kind: 'state', stateBehavior: { entry: 'recordError()' } },
-  { id: 'machine.final', label: 'Final', kind: 'end' }
-], [
-  { id: 'machine.initial-idle', source: 'machine.initial', target: 'machine.idle', type: 'flow' },
-  { id: 'machine.idle-processing', source: 'machine.idle', target: 'machine.processing', label: 'submit [valid] / accept()', guard: '[valid]', action: 'accept()', type: 'flow' },
-  { id: 'machine.processing-completed', source: 'machine.processing', target: 'machine.completed', label: 'done / commit()', action: 'commit()', type: 'flow' },
-  { id: 'machine.processing-failed', source: 'machine.processing', target: 'machine.failed', label: 'error [retryCount = 0] / rollback()', guard: '[retryCount = 0]', action: 'rollback()', type: 'flow' },
-  { id: 'machine.failed-processing', source: 'machine.failed', target: 'machine.processing', label: 'retry [retryCount > 0] / decrement()', guard: '[retryCount > 0]', action: 'decrement()', type: 'flow' },
-  { id: 'machine.completed-final', source: 'machine.completed', target: 'machine.final', type: 'flow' }
-]), state: { composites: [{ id: 'machine.composite.execution', label: 'Execution', nodeIds: ['machine.processing', 'machine.failed'], direction: 'TOP_TO_BOTTOM' }] } }; }
-export function activityDiagram(title = 'Activity Diagram'): Diagram { return { ...extension('activity', title, 'TOP_TO_BOTTOM', [
-  { id: 'activity.start', label: 'Start', kind: 'start' }, { id: 'activity.request', label: 'Order Request', kind: 'object' }, { id:'activity.fork',label:'Fork',kind:'fork' }, { id: 'activity.validate', label: 'Validate Order', kind: 'process' }, {id:'activity.reserve',label:'Reserve Stock',kind:'process'}, {id:'activity.join',label:'Join',kind:'join'}, { id:'activity.decision',label:'Valid?',kind:'decision' }, { id: 'activity.finish', label: 'Finish', kind: 'end' }, { id: 'activity.rejected', label: 'Rejected', kind: 'end' }
-], [{ id: 'activity.start-request', source: 'activity.start', target: 'activity.request', type: 'object-flow' }, {id:'activity.request-fork',source:'activity.request',target:'activity.fork',type:'object-flow'}, {id:'activity.fork-validate',source:'activity.fork',target:'activity.validate',type:'flow'}, {id:'activity.fork-reserve',source:'activity.fork',target:'activity.reserve',type:'flow'}, {id:'activity.validate-join',source:'activity.validate',target:'activity.join',type:'flow'}, {id:'activity.reserve-join',source:'activity.reserve',target:'activity.join',type:'flow'}, {id:'activity.join-decision',source:'activity.join',target:'activity.decision',type:'flow'}, { id: 'activity.decision-finish', source: 'activity.decision', target: 'activity.finish', guard: '[valid]', type: 'flow' }, { id: 'activity.decision-rejected', source: 'activity.decision', target: 'activity.rejected', guard: '[invalid]', type: 'flow' }]), activity: { swimlanes: [{ id: 'lane.user', label: 'User', nodeIds: ['activity.start', 'activity.request'] }, { id: 'lane.system', label: 'System', nodeIds: ['activity.fork','activity.validate','activity.reserve','activity.join','activity.decision','activity.finish','activity.rejected'] }], objectFlows: ['activity.start-request','activity.request-fork'] } }; }
-export function deploymentDiagram(title = 'Deployment Diagram'): Diagram { return { ...extension('deployment', title, 'LEFT_TO_RIGHT', [
-  { id: 'device.client', label: 'Client Device', kind: 'device' }, { id: 'node.server', label: 'Application Server', kind: 'node' }, { id: 'node.database', label: 'Database Server', kind: 'database' }
-], [{ id: 'deployment.client-server', source: 'device.client', target: 'node.server', label: 'HTTPS', type: 'communication-path' }, { id: 'deployment.server-db', source: 'node.server', target: 'node.database', label: 'JDBC', type: 'communication-path' }]), deployment: { artifacts: [{ id: 'artifact.web', label: 'web.jar', deployedOn: 'node.server' }] } }; }
-export function mindMap(title = 'Mind Map'): Diagram { return extension('mindmap', title, 'LEFT_TO_RIGHT', [
-  { id: 'mind.root', label: 'Central Topic', kind: 'root' }, { id: 'mind.one', label: 'Branch A', kind: 'branch' }, { id: 'mind.two', label: 'Branch B', kind: 'branch' }, { id: 'mind.three', label: 'Branch C', kind: 'branch' }, { id: 'mind.one-a', label: 'Sub A1', kind: 'leaf' }, { id: 'mind.one-b', label: 'Sub A2', kind: 'leaf' }, { id: 'mind.two-a', label: 'Sub B1', kind: 'leaf' }
-], [{ id: 'mind.root-one', source: 'mind.root', target: 'mind.one', type: 'contains' }, { id: 'mind.root-two', source: 'mind.root', target: 'mind.two', type: 'contains' }, { id: 'mind.root-three', source: 'mind.root', target: 'mind.three', type: 'contains' }, { id: 'mind.one-one-a', source: 'mind.one', target: 'mind.one-a', type: 'contains' }, { id: 'mind.one-one-b', source: 'mind.one', target: 'mind.one-b', type: 'contains' }, { id: 'mind.two-two-a', source: 'mind.two', target: 'mind.two-a', type: 'contains' }]); }
-export function timeline(title = 'Timeline'): Diagram { return extension('timeline', title, 'LEFT_TO_RIGHT', [
-  { id: 'milestone.one', label: 'Phase 1', kind: 'milestone' }, { id: 'milestone.two', label: 'Phase 2', kind: 'milestone' }, { id: 'milestone.three', label: 'Phase 3', kind: 'milestone' }
-], [{ id: 'timeline.one-two', source: 'milestone.one', target: 'milestone.two', type: 'flow' }, { id: 'timeline.two-three', source: 'milestone.two', target: 'milestone.three', type: 'flow' }]); }
-export function networkGraph(title = 'Network Graph'): Diagram { return extension('network', title, 'LEFT_TO_RIGHT', [
-  { id: 'network.gateway', label: 'Gateway', kind: 'node' }, { id: 'network.service-a', label: 'Service A', kind: 'node' }, { id: 'network.service-b', label: 'Service B', kind: 'node' }, { id: 'network.db', label: 'Data Store', kind: 'database' }
-], [{ id: 'network.gateway-a', source: 'network.gateway', target: 'network.service-a', type: 'flow' }, { id: 'network.gateway-b', source: 'network.gateway', target: 'network.service-b', type: 'flow' }, { id: 'network.a-db', source: 'network.service-a', target: 'network.db', type: 'flow' }, { id: 'network.b-db', source: 'network.service-b', target: 'network.db', type: 'flow' }]); }
+export function sequenceDiagram(title = 'Sequence Diagram'): Diagram {
+  return {
+    ...extension(
+      'sequence',
+      title,
+      'LEFT_TO_RIGHT',
+      [
+        { id: 'participant.client', label: 'Client', kind: 'participant' },
+        { id: 'participant.service', label: 'Service', kind: 'participant' },
+        { id: 'participant.db', label: 'Database', kind: 'participant' },
+      ],
+      [
+        {
+          id: 'message.client-service',
+          source: 'participant.client',
+          target: 'participant.service',
+          label: 'request()',
+          type: 'flow',
+          messageKind: 'call',
+        },
+        {
+          id: 'message.service-db',
+          source: 'participant.service',
+          target: 'participant.db',
+          label: 'query()',
+          type: 'flow',
+          messageKind: 'call',
+        },
+        {
+          id: 'message.db-service',
+          source: 'participant.db',
+          target: 'participant.service',
+          label: 'result',
+          type: 'flow',
+          messageKind: 'return',
+        },
+      ],
+    ),
+    sequence: {
+      activations: [
+        {
+          id: 'activation.service',
+          participantId: 'participant.service',
+          startMessageId: 'message.client-service',
+          endMessageId: 'message.db-service',
+        },
+      ],
+      fragments: [
+        {
+          id: 'fragment.alt',
+          operator: 'alt',
+          guard: 'valid request',
+          messageIds: ['message.client-service', 'message.service-db'],
+        },
+      ],
+    },
+  };
+}
+export function stateDiagram(title = 'State Diagram'): Diagram {
+  return {
+    ...extension(
+      'state',
+      title,
+      'LEFT_TO_RIGHT',
+      [
+        { id: 'state.initial', label: 'Initial', kind: 'start' },
+        { id: 'state.pending', label: 'Pending', kind: 'state' },
+        { id: 'state.active', label: 'Active', kind: 'state' },
+        { id: 'state.closed', label: 'Closed', kind: 'end' },
+      ],
+      [
+        { id: 'transition.initial-pending', source: 'state.initial', target: 'state.pending', type: 'flow' },
+        {
+          id: 'transition.pending-active',
+          source: 'state.pending',
+          target: 'state.active',
+          label: '[approved] / activate',
+          guard: '[approved]',
+          action: 'activate',
+          type: 'flow',
+        },
+        {
+          id: 'transition.active-closed',
+          source: 'state.active',
+          target: 'state.closed',
+          label: 'complete / close',
+          action: 'close',
+          type: 'flow',
+        },
+      ],
+    ),
+    state: {
+      composites: [
+        {
+          id: 'composite.order',
+          label: 'Order Lifecycle',
+          nodeIds: ['state.initial', 'state.pending', 'state.active', 'state.closed'],
+        },
+      ],
+    },
+  };
+}
+export function stateMachineDiagram(title = 'UML State Machine Diagram'): Diagram {
+  return {
+    ...extension(
+      'state-machine',
+      title,
+      'TOP_TO_BOTTOM',
+      [
+        { id: 'machine.initial', label: 'Initial', kind: 'start' },
+        {
+          id: 'machine.idle',
+          label: 'Idle',
+          kind: 'state',
+          stateBehavior: { entry: 'reset()', do: 'waitForRequest()' },
+        },
+        {
+          id: 'machine.processing',
+          label: 'Processing',
+          kind: 'state',
+          stateBehavior: { entry: 'startTimer()', do: 'process()', exit: 'stopTimer()' },
+        },
+        { id: 'machine.completed', label: 'Completed', kind: 'state', stateBehavior: { entry: 'notifyResult()' } },
+        { id: 'machine.failed', label: 'Failed', kind: 'state', stateBehavior: { entry: 'recordError()' } },
+        { id: 'machine.final', label: 'Final', kind: 'end' },
+      ],
+      [
+        { id: 'machine.initial-idle', source: 'machine.initial', target: 'machine.idle', type: 'flow' },
+        {
+          id: 'machine.idle-processing',
+          source: 'machine.idle',
+          target: 'machine.processing',
+          label: 'submit [valid] / accept()',
+          guard: '[valid]',
+          action: 'accept()',
+          type: 'flow',
+        },
+        {
+          id: 'machine.processing-completed',
+          source: 'machine.processing',
+          target: 'machine.completed',
+          label: 'done / commit()',
+          action: 'commit()',
+          type: 'flow',
+        },
+        {
+          id: 'machine.processing-failed',
+          source: 'machine.processing',
+          target: 'machine.failed',
+          label: 'error [retryCount = 0] / rollback()',
+          guard: '[retryCount = 0]',
+          action: 'rollback()',
+          type: 'flow',
+        },
+        {
+          id: 'machine.failed-processing',
+          source: 'machine.failed',
+          target: 'machine.processing',
+          label: 'retry [retryCount > 0] / decrement()',
+          guard: '[retryCount > 0]',
+          action: 'decrement()',
+          type: 'flow',
+        },
+        { id: 'machine.completed-final', source: 'machine.completed', target: 'machine.final', type: 'flow' },
+      ],
+    ),
+    state: {
+      composites: [
+        {
+          id: 'machine.composite.execution',
+          label: 'Execution',
+          nodeIds: ['machine.processing', 'machine.failed'],
+          direction: 'TOP_TO_BOTTOM',
+        },
+      ],
+    },
+  };
+}
+export function activityDiagram(title = 'Activity Diagram'): Diagram {
+  return {
+    ...extension(
+      'activity',
+      title,
+      'TOP_TO_BOTTOM',
+      [
+        { id: 'activity.start', label: 'Start', kind: 'start' },
+        { id: 'activity.request', label: 'Order Request', kind: 'object' },
+        { id: 'activity.fork', label: 'Fork', kind: 'fork' },
+        { id: 'activity.validate', label: 'Validate Order', kind: 'process' },
+        { id: 'activity.reserve', label: 'Reserve Stock', kind: 'process' },
+        { id: 'activity.join', label: 'Join', kind: 'join' },
+        { id: 'activity.decision', label: 'Valid?', kind: 'decision' },
+        { id: 'activity.finish', label: 'Finish', kind: 'end' },
+        { id: 'activity.rejected', label: 'Rejected', kind: 'end' },
+      ],
+      [
+        { id: 'activity.start-request', source: 'activity.start', target: 'activity.request', type: 'object-flow' },
+        { id: 'activity.request-fork', source: 'activity.request', target: 'activity.fork', type: 'object-flow' },
+        { id: 'activity.fork-validate', source: 'activity.fork', target: 'activity.validate', type: 'flow' },
+        { id: 'activity.fork-reserve', source: 'activity.fork', target: 'activity.reserve', type: 'flow' },
+        { id: 'activity.validate-join', source: 'activity.validate', target: 'activity.join', type: 'flow' },
+        { id: 'activity.reserve-join', source: 'activity.reserve', target: 'activity.join', type: 'flow' },
+        { id: 'activity.join-decision', source: 'activity.join', target: 'activity.decision', type: 'flow' },
+        {
+          id: 'activity.decision-finish',
+          source: 'activity.decision',
+          target: 'activity.finish',
+          guard: '[valid]',
+          type: 'flow',
+        },
+        {
+          id: 'activity.decision-rejected',
+          source: 'activity.decision',
+          target: 'activity.rejected',
+          guard: '[invalid]',
+          type: 'flow',
+        },
+      ],
+    ),
+    activity: {
+      swimlanes: [
+        { id: 'lane.user', label: 'User', nodeIds: ['activity.start', 'activity.request'] },
+        {
+          id: 'lane.system',
+          label: 'System',
+          nodeIds: [
+            'activity.fork',
+            'activity.validate',
+            'activity.reserve',
+            'activity.join',
+            'activity.decision',
+            'activity.finish',
+            'activity.rejected',
+          ],
+        },
+      ],
+      objectFlows: ['activity.start-request', 'activity.request-fork'],
+    },
+  };
+}
+export function deploymentDiagram(title = 'Deployment Diagram'): Diagram {
+  return {
+    ...extension(
+      'deployment',
+      title,
+      'LEFT_TO_RIGHT',
+      [
+        { id: 'device.client', label: 'Client Device', kind: 'device' },
+        { id: 'node.server', label: 'Application Server', kind: 'node' },
+        { id: 'node.database', label: 'Database Server', kind: 'database' },
+      ],
+      [
+        {
+          id: 'deployment.client-server',
+          source: 'device.client',
+          target: 'node.server',
+          label: 'HTTPS',
+          type: 'communication-path',
+        },
+        {
+          id: 'deployment.server-db',
+          source: 'node.server',
+          target: 'node.database',
+          label: 'JDBC',
+          type: 'communication-path',
+        },
+      ],
+    ),
+    deployment: { artifacts: [{ id: 'artifact.web', label: 'web.jar', deployedOn: 'node.server' }] },
+  };
+}
+export function mindMap(title = 'Mind Map'): Diagram {
+  return extension(
+    'mindmap',
+    title,
+    'LEFT_TO_RIGHT',
+    [
+      { id: 'mind.root', label: 'Central Topic', kind: 'root' },
+      { id: 'mind.one', label: 'Branch A', kind: 'branch' },
+      { id: 'mind.two', label: 'Branch B', kind: 'branch' },
+      { id: 'mind.three', label: 'Branch C', kind: 'branch' },
+      { id: 'mind.one-a', label: 'Sub A1', kind: 'leaf' },
+      { id: 'mind.one-b', label: 'Sub A2', kind: 'leaf' },
+      { id: 'mind.two-a', label: 'Sub B1', kind: 'leaf' },
+    ],
+    [
+      { id: 'mind.root-one', source: 'mind.root', target: 'mind.one', type: 'contains' },
+      { id: 'mind.root-two', source: 'mind.root', target: 'mind.two', type: 'contains' },
+      { id: 'mind.root-three', source: 'mind.root', target: 'mind.three', type: 'contains' },
+      { id: 'mind.one-one-a', source: 'mind.one', target: 'mind.one-a', type: 'contains' },
+      { id: 'mind.one-one-b', source: 'mind.one', target: 'mind.one-b', type: 'contains' },
+      { id: 'mind.two-two-a', source: 'mind.two', target: 'mind.two-a', type: 'contains' },
+    ],
+  );
+}
+export function timeline(title = 'Timeline'): Diagram {
+  return extension(
+    'timeline',
+    title,
+    'LEFT_TO_RIGHT',
+    [
+      { id: 'milestone.one', label: 'Phase 1', kind: 'milestone' },
+      { id: 'milestone.two', label: 'Phase 2', kind: 'milestone' },
+      { id: 'milestone.three', label: 'Phase 3', kind: 'milestone' },
+    ],
+    [
+      { id: 'timeline.one-two', source: 'milestone.one', target: 'milestone.two', type: 'flow' },
+      { id: 'timeline.two-three', source: 'milestone.two', target: 'milestone.three', type: 'flow' },
+    ],
+  );
+}
+export function networkGraph(title = 'Network Graph'): Diagram {
+  return extension(
+    'network',
+    title,
+    'LEFT_TO_RIGHT',
+    [
+      { id: 'network.gateway', label: 'Gateway', kind: 'node' },
+      { id: 'network.service-a', label: 'Service A', kind: 'node' },
+      { id: 'network.service-b', label: 'Service B', kind: 'node' },
+      { id: 'network.db', label: 'Data Store', kind: 'database' },
+    ],
+    [
+      { id: 'network.gateway-a', source: 'network.gateway', target: 'network.service-a', type: 'flow' },
+      { id: 'network.gateway-b', source: 'network.gateway', target: 'network.service-b', type: 'flow' },
+      { id: 'network.a-db', source: 'network.service-a', target: 'network.db', type: 'flow' },
+      { id: 'network.b-db', source: 'network.service-b', target: 'network.db', type: 'flow' },
+    ],
+  );
+}

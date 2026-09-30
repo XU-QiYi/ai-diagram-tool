@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 import type { LayoutEdge, LayoutNode, Point } from '../model/types.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -33,7 +33,9 @@ async function loadRouter(): Promise<{ Avoid: unknown; computeRoutes: AvoidRouti
   }
   const global = globalThis as { Avoid?: unknown; AvoidRouting?: { computeRoutes?: AvoidRouting } };
   if (!global.Avoid || typeof global.AvoidRouting?.computeRoutes !== 'function') {
-    throw new Error('[fallback-router] the vendored scripts loaded but did not publish globalThis.Avoid / AvoidRouting.computeRoutes; vendor/libavoid/ is probably not the expected build.');
+    throw new Error(
+      '[fallback-router] the vendored scripts loaded but did not publish globalThis.Avoid / AvoidRouting.computeRoutes; vendor/libavoid/ is probably not the expected build.',
+    );
   }
   loaded = { Avoid: global.Avoid, computeRoutes: global.AvoidRouting.computeRoutes };
   return loaded;

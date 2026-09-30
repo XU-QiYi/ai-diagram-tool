@@ -17,7 +17,8 @@ async function readLimited(file: string): Promise<Buffer> {
 
 function limitText(value: string, name: string): string {
   const text = value.trim();
-  if (!text || text.length > MAX_TEXT_CHARS) throw new Error(`Input text must contain 1-${MAX_TEXT_CHARS} characters: ${name}`);
+  if (!text || text.length > MAX_TEXT_CHARS)
+    throw new Error(`Input text must contain 1-${MAX_TEXT_CHARS} characters: ${name}`);
   return text;
 }
 
@@ -35,7 +36,7 @@ async function loadDocument(file: string): Promise<InputSource> {
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
       const page = await pdf.getPage(pageNumber);
       const text = await page.getTextContent();
-      pages.push(text.items.map(item => 'str' in item ? item.str : '').join(' '));
+      pages.push(text.items.map((item) => ('str' in item ? item.str : '')).join(' '));
     }
     content = pages.join('\n');
     await loadingTask.destroy();
@@ -48,7 +49,8 @@ async function loadImage(file: string, kind: SourceKind): Promise<InputSource> {
   const extension = path.extname(file).toLowerCase();
   const png = extension === '.png' && bytes.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'));
   const jpeg = ['.jpg', '.jpeg'].includes(extension) && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-  const webp = extension === '.webp' && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP';
+  const webp =
+    extension === '.webp' && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP';
   if (!png && !jpeg && !webp) throw new Error(`Unsupported or invalid image format: ${file}`);
   const mime = png ? 'image/png' : jpeg ? 'image/jpeg' : 'image/webp';
   return { kind, name: path.basename(file), dataUrl: `data:${mime};base64,${bytes.toString('base64')}` };
@@ -66,11 +68,13 @@ async function loadTemplate(file: string): Promise<InputSource> {
 
 export async function prepareInput(options: InputOptions): Promise<PreparedInput> {
   if (options.document && options.image) throw new Error('Use one primary file: --document or --image');
-  if (!options.text?.trim() && !options.document && !options.image) throw new Error('Provide --text, --document, or --image');
+  if (!options.text?.trim() && !options.document && !options.image)
+    throw new Error('Provide --text, --document, or --image');
   const sources: InputSource[] = [];
   if (options.document) sources.push(await loadDocument(path.resolve(options.document)));
   if (options.image) sources.push(await loadImage(path.resolve(options.image), 'image'));
-  if (options.text?.trim()) sources.push({ kind: 'request', name: 'request', text: limitText(options.text, 'request') });
+  if (options.text?.trim())
+    sources.push({ kind: 'request', name: 'request', text: limitText(options.text, 'request') });
   if (options.template) sources.push(await loadTemplate(path.resolve(options.template)));
   return { sources };
 }

@@ -16,18 +16,26 @@ interface ParsedRelationship {
 }
 
 function stableId(label: string): string {
-  return [...label.trim().toLowerCase()]
-    .map(char => /[a-z0-9]/.test(char) ? char : `u${char.codePointAt(0)!.toString(16)}`)
-    .join('')
-    .slice(0, 48) || 'unnamed';
+  return (
+    [...label.trim().toLowerCase()]
+      .map((char) => (/[a-z0-9]/.test(char) ? char : `u${char.codePointAt(0)!.toString(16)}`))
+      .join('')
+      .slice(0, 48) || 'unnamed'
+  );
 }
 
 function cleanLabel(value: string): string {
-  return value.trim().replace(/^[“”‘’"'《》]+|[“”‘’"'《》]+$/g, '').trim();
+  return value
+    .trim()
+    .replace(/^[“”‘’"'《》]+|[“”‘’"'《》]+$/g, '')
+    .trim();
 }
 
 function splitList(value: string): string[] {
-  return value.split(/[、,，]/).map(cleanLabel).filter(Boolean);
+  return value
+    .split(/[、,，]/)
+    .map(cleanLabel)
+    .filter(Boolean);
 }
 
 function parseAttribute(raw: string): Omit<ParsedAttribute, 'entity'> | undefined {
@@ -49,18 +57,27 @@ function normalizeCardinality(value: string): string {
 }
 
 function parseRelationship(raw: string, entityLabels: string[]): ParsedRelationship | undefined {
-  let text = cleanLabel(raw).replace(/^(?:联系|关系)\s*[:：]\s*/i, '').trim();
-  const cardinality = text.match(/(?:基数|关系为|为)?\s*(0\.\.1|0\.\.[*NM]|1\.\.[*NM]|1|M|N|\*)\s*[:：]\s*(0\.\.1|0\.\.[*NM]|1\.\.[*NM]|1|M|N|\*)\s*$/i);
+  let text = cleanLabel(raw)
+    .replace(/^(?:联系|关系)\s*[:：]\s*/i, '')
+    .trim();
+  const cardinality = text.match(
+    /(?:基数|关系为|为)?\s*(0\.\.1|0\.\.[*NM]|1\.\.[*NM]|1|M|N|\*)\s*[:：]\s*(0\.\.1|0\.\.[*NM]|1\.\.[*NM]|1|M|N|\*)\s*$/i,
+  );
   const sourceCardinality = cardinality ? normalizeCardinality(cardinality[1]) : undefined;
   const targetCardinality = cardinality ? normalizeCardinality(cardinality[2]) : undefined;
-  if (cardinality) text = text.slice(0, cardinality.index).replace(/[，,、\s]+$/, '').trim();
+  if (cardinality)
+    text = text
+      .slice(0, cardinality.index)
+      .replace(/[，,、\s]+$/, '')
+      .trim();
 
   const ordered = [...entityLabels].sort((a, b) => b.length - a.length);
   for (const source of ordered) {
     if (!text.startsWith(source)) continue;
     for (const target of ordered) {
       if (source === target || !text.endsWith(target)) continue;
-      let label = text.slice(source.length, text.length - target.length)
+      let label = text
+        .slice(source.length, text.length - target.length)
         .replace(/^\s*(?:与|和|跟)\s*/, '')
         .replace(/^\s*通过\s*/, '')
         .replace(/\s*(?:联系|关联|之间的|的)?\s*(?:关系)?\s*$/i, '');
@@ -70,7 +87,14 @@ function parseRelationship(raw: string, entityLabels: string[]): ParsedRelations
   }
 
   const chain = text.match(/^(.+?)\s*[-—]\s*(.+?)\s*[-—]\s*(.+)$/);
-  if (chain) return { source: cleanLabel(chain[1]), label: cleanLabel(chain[2]), target: cleanLabel(chain[3]), sourceCardinality, targetCardinality };
+  if (chain)
+    return {
+      source: cleanLabel(chain[1]),
+      label: cleanLabel(chain[2]),
+      target: cleanLabel(chain[3]),
+      sourceCardinality,
+      targetCardinality,
+    };
   return undefined;
 }
 
@@ -79,7 +103,10 @@ function parseRelationship(raw: string, entityLabels: string[]): ParsedRelations
  * intentionally left to the caller's fallback instead of inventing entities or cardinalities.
  */
 export function parseChenErRequest(request: string): Diagram | undefined {
-  const segments = request.split(/[\r\n；;。]+/).map(value => value.trim()).filter(Boolean);
+  const segments = request
+    .split(/[\r\n；;。]+/)
+    .map((value) => value.trim())
+    .filter(Boolean);
   const entities: string[] = [];
   const attributes: ParsedAttribute[] = [];
   const relationshipTexts: string[] = [];
@@ -110,7 +137,12 @@ export function parseChenErRequest(request: string): Diagram | undefined {
     }
     const relationshipSection = segment.match(/^(?:联系|关系)\s*[:：]\s*(.+)$/i);
     if (relationshipSection) {
-      relationshipTexts.push(...relationshipSection[1].split(/[、]/).map(value => value.trim()).filter(Boolean));
+      relationshipTexts.push(
+        ...relationshipSection[1]
+          .split(/[、]/)
+          .map((value) => value.trim())
+          .filter(Boolean),
+      );
       inRelationshipSection = true;
       continue;
     }
@@ -119,7 +151,7 @@ export function parseChenErRequest(request: string): Diagram | undefined {
 
   if (entities.length < 1) return undefined;
   const relationships = relationshipTexts
-    .map(value => parseRelationship(value, entities))
+    .map((value) => parseRelationship(value, entities))
     .filter((value): value is ParsedRelationship => Boolean(value));
   if (!attributes.length && !relationships.length) return undefined;
 
@@ -147,14 +179,31 @@ export function parseChenErRequest(request: string): Diagram | undefined {
     const ownerId = entityId.get(attribute.entity)!;
     const id = uniqueNodeId(`attribute.${stableId(attribute.entity)}.${stableId(attribute.label)}`);
     nodes.push({ id, label: attribute.label, kind: attribute.kind });
-    edges.push({ id: `chen.attribute.${stableId(attribute.entity)}.${stableId(attribute.label)}.${edges.length + 1}`, source: ownerId, target: id, type: 'association' });
+    edges.push({
+      id: `chen.attribute.${stableId(attribute.entity)}.${stableId(attribute.label)}.${edges.length + 1}`,
+      source: ownerId,
+      target: id,
+      type: 'association',
+    });
   }
   for (const relationship of relationships) {
     const id = uniqueNodeId(`relationship.${stableId(relationship.label)}`);
     nodes.push({ id, label: relationship.label, kind: 'relationship', width: 110, height: 64 });
     edges.push(
-      { id: `chen.relationship.${stableId(relationship.label)}.source.${edges.length + 1}`, source: entityId.get(relationship.source)!, target: id, label: relationship.sourceCardinality, type: 'association' },
-      { id: `chen.relationship.${stableId(relationship.label)}.target.${edges.length + 2}`, source: entityId.get(relationship.target)!, target: id, label: relationship.targetCardinality, type: 'association' },
+      {
+        id: `chen.relationship.${stableId(relationship.label)}.source.${edges.length + 1}`,
+        source: entityId.get(relationship.source)!,
+        target: id,
+        label: relationship.sourceCardinality,
+        type: 'association',
+      },
+      {
+        id: `chen.relationship.${stableId(relationship.label)}.target.${edges.length + 2}`,
+        source: entityId.get(relationship.target)!,
+        target: id,
+        label: relationship.targetCardinality,
+        type: 'association',
+      },
     );
   }
 
@@ -168,9 +217,9 @@ export function parseChenErRequest(request: string): Diagram | undefined {
     edges,
     metadata: { request },
     chenEr: {
-      entityIds: nodes.filter(node => node.kind === 'entity').map(node => node.id),
-      attributeIds: nodes.filter(node => node.kind?.endsWith('attribute')).map(node => node.id),
-      relationshipIds: nodes.filter(node => node.kind === 'relationship').map(node => node.id),
+      entityIds: nodes.filter((node) => node.kind === 'entity').map((node) => node.id),
+      attributeIds: nodes.filter((node) => node.kind?.endsWith('attribute')).map((node) => node.id),
+      relationshipIds: nodes.filter((node) => node.kind === 'relationship').map((node) => node.id),
     },
   });
 }

@@ -1,5 +1,5 @@
-import http from 'node:http';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
+import http from 'node:http';
 import { handleRequest, jsonRpcFailure, SUPPORTED_PROTOCOLS } from './server.js';
 
 /**
@@ -121,7 +121,15 @@ export async function startHttpServer(options: HttpTransportOptions): Promise<Se
     const origin = req.headers.origin;
     if (typeof origin === 'string' && !originAllowed(origin, host, port, allowedOrigins)) {
       log(`rejected origin ${origin}`);
-      return sendJson(res, 403, jsonRpcFailure(null, -32000, `Origin "${origin}" is not allowed. Add it via DIAGRAM_MCP_HTTP_ORIGIN if it is yours.`));
+      return sendJson(
+        res,
+        403,
+        jsonRpcFailure(
+          null,
+          -32000,
+          `Origin "${origin}" is not allowed. Add it via DIAGRAM_MCP_HTTP_ORIGIN if it is yours.`,
+        ),
+      );
     }
     // Security rule 3: a rebound host name must not reach the endpoint either.
     const hostHeader = req.headers.host;
@@ -132,21 +140,41 @@ export async function startHttpServer(options: HttpTransportOptions): Promise<Se
 
     if (req.method === 'GET') {
       // Spec: 405 means the server does not offer a server-initiated SSE stream here.
-      return sendJson(res, 405, jsonRpcFailure(null, -32000, 'This server sends no server-initiated messages; use POST.'), { Allow: 'POST, DELETE' });
+      return sendJson(
+        res,
+        405,
+        jsonRpcFailure(null, -32000, 'This server sends no server-initiated messages; use POST.'),
+        { Allow: 'POST, DELETE' },
+      );
     }
     if (req.method === 'DELETE') {
       // Stateless server: there is no session to terminate; the spec explicitly allows 405.
-      return sendJson(res, 405, jsonRpcFailure(null, -32000, 'This server is stateless and holds no sessions.'), { Allow: 'POST, DELETE' });
+      return sendJson(res, 405, jsonRpcFailure(null, -32000, 'This server is stateless and holds no sessions.'), {
+        Allow: 'POST, DELETE',
+      });
     }
     if (req.method !== 'POST') {
-      return sendJson(res, 405, jsonRpcFailure(null, -32000, `Method ${String(req.method)} is not supported; use POST.`), { Allow: 'POST, DELETE' });
+      return sendJson(
+        res,
+        405,
+        jsonRpcFailure(null, -32000, `Method ${String(req.method)} is not supported; use POST.`),
+        { Allow: 'POST, DELETE' },
+      );
     }
 
     // Spec: an unsupported MCP-Protocol-Version header MUST be answered with 400; an
     // absent one falls back to the 2025-03-26 assumption.
     const versionHeader = req.headers['mcp-protocol-version'];
     if (typeof versionHeader === 'string' && versionHeader.trim() && !SUPPORTED_PROTOCOLS.has(versionHeader.trim())) {
-      return sendJson(res, 400, jsonRpcFailure(null, -32000, `Unsupported MCP-Protocol-Version "${versionHeader.trim()}"; supported: ${[...SUPPORTED_PROTOCOLS].join(', ')}.`));
+      return sendJson(
+        res,
+        400,
+        jsonRpcFailure(
+          null,
+          -32000,
+          `Unsupported MCP-Protocol-Version "${versionHeader.trim()}"; supported: ${[...SUPPORTED_PROTOCOLS].join(', ')}.`,
+        ),
+      );
     }
 
     const body = await readBody(req);
@@ -158,11 +186,23 @@ export async function startHttpServer(options: HttpTransportOptions): Promise<Se
     try {
       frame = JSON.parse(body.toString('utf8'));
     } catch {
-      return sendJson(res, 400, jsonRpcFailure(null, -32700, 'Parse error: the body must be exactly one JSON-RPC message.'));
+      return sendJson(
+        res,
+        400,
+        jsonRpcFailure(null, -32700, 'Parse error: the body must be exactly one JSON-RPC message.'),
+      );
     }
     if (Array.isArray(frame)) {
       // Batching was removed in protocol revision 2025-06-18.
-      return sendJson(res, 400, jsonRpcFailure(null, -32600, 'JSON-RPC batching is not supported (removed in MCP 2025-06-18); send exactly one message per POST.'));
+      return sendJson(
+        res,
+        400,
+        jsonRpcFailure(
+          null,
+          -32600,
+          'JSON-RPC batching is not supported (removed in MCP 2025-06-18); send exactly one message per POST.',
+        ),
+      );
     }
     if (typeof frame !== 'object' || frame === null) {
       return sendJson(res, 400, jsonRpcFailure(null, -32600, 'Invalid Request: the body must be one JSON-RPC object.'));

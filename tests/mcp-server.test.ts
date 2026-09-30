@@ -5,9 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { callTool } from '../src/mcp/tools.js';
 import { ToolError } from '../src/mcp/guards.js';
 import { handleRequest } from '../src/mcp/server.js';
+import { callTool } from '../src/mcp/tools.js';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const serverEntry = path.join(projectRoot, 'src', 'mcp', 'server.ts');
@@ -73,7 +73,11 @@ test('diagram_validate surfaces semantic errors as a report, not a crash', async
 
 test('diagram_render writes .model.json, .drawio and .svg', async () => {
   const out = path.join(workspace, 'rendered');
-  const result = await callTool('diagram_render', { model: sampleModel(), out: 'rendered' }, { root: workspace, env: {} });
+  const result = await callTool(
+    'diagram_render',
+    { model: sampleModel(), out: 'rendered' },
+    { root: workspace, env: {} },
+  );
   const json = await payload(result);
   assert.equal(result.isError, undefined);
   assert.equal(json.written.diagrams.length, 1);
@@ -136,7 +140,15 @@ test('a patched model with absolute positions is refused with an explanation', a
   await assert.rejects(
     callTool(
       'diagram_render',
-      { model: sampleModel({ nodes: [{ id: 'node.a', label: 'A' }, { id: 'node.b', label: 'B', mxGeometry: '<mxGeometry x="1"/>' }] }), out: 'nope' },
+      {
+        model: sampleModel({
+          nodes: [
+            { id: 'node.a', label: 'A' },
+            { id: 'node.b', label: 'B', mxGeometry: '<mxGeometry x="1"/>' },
+          ],
+        }),
+        out: 'nope',
+      },
       { root: workspace, env: {} },
     ),
     /Geometry must not be supplied by the caller/,
@@ -220,17 +232,22 @@ function startServer(cwd: string) {
   child.stdout.on('data', (chunk: string) => {
     for (const line of chunk.split('\n')) {
       const trimmed = line.trim();
-      if (trimmed) { lines.push(trimmed); waiters.shift()?.(); }
+      if (trimmed) {
+        lines.push(trimmed);
+        waiters.shift()?.();
+      }
     }
   });
   child.stderr.setEncoding('utf8');
-  child.stderr.on('data', (chunk: string) => { stderr += chunk; });
+  child.stderr.on('data', (chunk: string) => {
+    stderr += chunk;
+  });
 
   const nextMessage = async (timeoutMs = 60_000): Promise<RpcMessage> => {
     const deadline = Date.now() + timeoutMs;
     while (!lines.length) {
       if (Date.now() > deadline) throw new Error(`no MCP frame within ${timeoutMs}ms; stderr=${stderr}`);
-      await new Promise<void>(resolve => waiters.push(resolve));
+      await new Promise<void>((resolve) => waiters.push(resolve));
     }
     return JSON.parse(lines.shift() as string) as RpcMessage;
   };
@@ -241,7 +258,15 @@ function startServer(cwd: string) {
     assert.equal(message.id, id, `response id mismatch for ${method}; stderr=${stderr}`);
     return message;
   };
-  return { child, request, notify: (method: string) => child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method })}\n`), nextMessage, get stderr() { return stderr; } };
+  return {
+    child,
+    request,
+    notify: (method: string) => child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method })}\n`),
+    nextMessage,
+    get stderr() {
+      return stderr;
+    },
+  };
 }
 
 test('stdio session: initialize, tools/list, validate and render a real example model', async () => {
@@ -263,8 +288,14 @@ test('stdio session: initialize, tools/list, validate and render a real example 
     assert.deepEqual(
       listed.result.tools.map((tool: { name: string }) => tool.name).sort(),
       [
-        'diagram_generate', 'diagram_patch', 'diagram_plan_request', 'diagram_plan_submit',
-        'diagram_render', 'diagram_review_request', 'diagram_review_submit', 'diagram_validate',
+        'diagram_generate',
+        'diagram_patch',
+        'diagram_plan_request',
+        'diagram_plan_submit',
+        'diagram_render',
+        'diagram_review_request',
+        'diagram_review_submit',
+        'diagram_validate',
       ],
       'the server exposes structure in / answers out, and never a raw XML or coordinate tool',
     );

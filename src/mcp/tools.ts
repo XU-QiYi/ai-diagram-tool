@@ -1,21 +1,21 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { createDiagram } from '../model/index.js';
-import { loadDiagramModel } from '../model/io.js';
-import { layoutDiagram } from '../layout/elk.js';
-import { validateLayout } from '../validate/index.js';
-import { validateRenderOutputs } from '../validate/render.js';
-import { renderDrawio } from '../render/drawio.js';
-import { renderSvg } from '../render/svg.js';
-import { applyDiagramPatch, splitLargeDiagram, type DiagramPatch } from '../pipeline/index.js';
-import { prepareInput } from '../ai/input.js';
-import { DEFAULT_VISUAL_MAX_ROUNDS } from '../validate/visual.js';
 import { buildPlanTask, buildReviewTask, submitPlanAnswer, submitReviewAnswer } from '../agent/intake.js';
+import { prepareInput } from '../ai/input.js';
 import type { PlannedDiagram } from '../ai/types.js';
 import { createDiagramFromRequest } from '../diagram-types/registry.js';
+import { layoutDiagram } from '../layout/elk.js';
+import { createDiagram } from '../model/index.js';
+import { loadDiagramModel } from '../model/io.js';
 import type { Diagram, LayoutResult, ValidationIssue, ValidationReport } from '../model/types.js';
 import { LAYOUT_ALGORITHMS } from '../model/types.js';
-import { assertNoGeometry, asRecord, clampNumber, requireString, ToolError, type JsonRecord } from './guards.js';
+import { applyDiagramPatch, type DiagramPatch, splitLargeDiagram } from '../pipeline/index.js';
+import { renderDrawio } from '../render/drawio.js';
+import { renderSvg } from '../render/svg.js';
+import { validateLayout } from '../validate/index.js';
+import { validateRenderOutputs } from '../validate/render.js';
+import { DEFAULT_VISUAL_MAX_ROUNDS } from '../validate/visual.js';
+import { asRecord, assertNoGeometry, clampNumber, type JsonRecord, requireString, ToolError } from './guards.js';
 
 export interface ToolDefinition {
   name: string;
@@ -28,8 +28,7 @@ export interface ToolResult {
   isError?: boolean;
 }
 
-const GEOMETRY_NOTE =
-  'Geometry (x, y, size, edge routes) is computed by ELK; requests that carry it are rejected.';
+const GEOMETRY_NOTE = 'Geometry (x, y, size, edge routes) is computed by ELK; requests that carry it are rejected.';
 
 const diagramSchema = {
   type: 'object',
@@ -41,9 +40,21 @@ const diagramSchema = {
     type: {
       type: 'string',
       enum: [
-        'system-architecture', 'uml-class', 'uml-component', 'uml-usecase', 'flowchart',
-        'er', 'chen-er', 'sequence', 'state', 'state-machine', 'activity', 'deployment',
-        'mindmap', 'timeline', 'network',
+        'system-architecture',
+        'uml-class',
+        'uml-component',
+        'uml-usecase',
+        'flowchart',
+        'er',
+        'chen-er',
+        'sequence',
+        'state',
+        'state-machine',
+        'activity',
+        'deployment',
+        'mindmap',
+        'timeline',
+        'network',
       ],
     },
     direction: { type: 'string', enum: ['LEFT_TO_RIGHT', 'RIGHT_TO_LEFT', 'TOP_TO_BOTTOM', 'BOTTOM_TO_TOP'] },
@@ -78,8 +89,14 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       additionalProperties: false,
       properties: {
         text: { type: 'string', description: 'Arrow chain for the parser, e.g. 系统架构：前端 -> API -> 数据库.' },
-        chain: { type: 'boolean', description: 'Required and must be true: use the arrow-chain parser instead of any model.' },
-        out: { type: 'string', description: 'Output directory (relative paths resolve against the server working directory).' },
+        chain: {
+          type: 'boolean',
+          description: 'Required and must be true: use the arrow-chain parser instead of any model.',
+        },
+        out: {
+          type: 'string',
+          description: 'Output directory (relative paths resolve against the server working directory).',
+        },
       },
       required: ['chain', 'text'],
     },
@@ -179,7 +196,8 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         answer: { type: 'object', description: 'The reasoner reply: { diagram, confidence, uncertainties }.' },
         audit: {
           type: 'object',
-          description: 'Optional independent audit { confidence, missing, unsupportedElementIds }. Omit it only deliberately; the report then states the plan was not independently reviewed.',
+          description:
+            'Optional independent audit { confidence, missing, unsupportedElementIds }. Omit it only deliberately; the report then states the plan was not independently reviewed.',
         },
         findings: { type: 'object', description: 'Optional reviewer findings, applied as layout preferences only.' },
         out: { type: 'string' },
@@ -199,7 +217,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         model: diagramSchema,
         modelPath: { type: 'string' },
         round: { type: 'integer', minimum: 1, maximum: 9 },
-        maxRounds: { type: 'integer', minimum: 0, maximum: 5, description: 'Review-round budget reported back with the task, so a caller knows when to stop re-reviewing (default 2).' },
+        maxRounds: {
+          type: 'integer',
+          minimum: 0,
+          maximum: 5,
+          description:
+            'Review-round budget reported back with the task, so a caller knows when to stop re-reviewing (default 2).',
+        },
         out: { type: 'string' },
       },
     },
@@ -254,7 +278,7 @@ async function readModel(args: JsonRecord, root: string): Promise<Diagram> {
 function summarize(layout: LayoutResult, report: ValidationReport, renderIssues: ValidationIssue[]) {
   const issues = [...report.issues, ...renderIssues];
   return {
-    valid: report.valid && !renderIssues.some(issue => issue.severity === 'ERROR'),
+    valid: report.valid && !renderIssues.some((issue) => issue.severity === 'ERROR'),
     status: layout.status ?? 'passed',
     iterations: layout.iterations,
     canvas: { width: layout.width, height: layout.height },
@@ -263,7 +287,7 @@ function summarize(layout: LayoutResult, report: ValidationReport, renderIssues:
       edges: layout.edges.length,
       containers: layout.containers.length,
     },
-    issues: issues.map(issue => ({
+    issues: issues.map((issue) => ({
       severity: issue.severity,
       code: issue.code,
       phase: issue.phase,
@@ -279,7 +303,11 @@ async function buildSourceInput(args: JsonRecord, root: string) {
   const image = args.image === undefined ? undefined : resolveInside(root, requireString(args, 'image'));
   const template = args.template === undefined ? undefined : resolveInside(root, requireString(args, 'template'));
   if (text === undefined && document === undefined && image === undefined && template === undefined) {
-    throw new ToolError('MISSING_SOURCE', 'This call needs at least one of "text", "document", "image" or "template".', 'Pass the material the reasoner should work from; evidence is re-verified verbatim on submit.');
+    throw new ToolError(
+      'MISSING_SOURCE',
+      'This call needs at least one of "text", "document", "image" or "template".',
+      'Pass the material the reasoner should work from; evidence is re-verified verbatim on submit.',
+    );
   }
   return prepareInput({ text, document, image, template });
 }
@@ -293,7 +321,7 @@ async function writePlanArtifacts(planned: PlannedDiagram, out: string) {
   const svg = renderSvg(layout);
   const renderIssues = validateRenderOutputs(layout, drawio, svg);
   quality.issues.push(...renderIssues);
-  if (renderIssues.some(issue => issue.severity === 'ERROR')) {
+  if (renderIssues.some((issue) => issue.severity === 'ERROR')) {
     quality.valid = false;
     quality.status = 'failed';
   }
@@ -320,7 +348,7 @@ async function writePlanArtifacts(planned: PlannedDiagram, out: string) {
     counts: { nodes: layout.nodes.length, edges: layout.edges.length, containers: layout.containers.length },
     evidence: quality.evidence,
     auditConfidence: quality.auditConfidence,
-    issues: quality.issues.map(issue => ({
+    issues: quality.issues.map((issue) => ({
       severity: issue.severity,
       code: issue.code,
       phase: issue.phase,
@@ -352,7 +380,10 @@ async function renderAndWrite(diagram: Diagram, out: string) {
     ]);
     results.push({ diagramId: part.diagram.id, files, ...summarize(layout, report, renderIssues) });
   }
-  return { split: parts.length > 1 ? { of: diagram.id, parts: parts.map(part => part.name) } : undefined, diagrams: results };
+  return {
+    split: parts.length > 1 ? { of: diagram.id, parts: parts.map((part) => part.name) } : undefined,
+    diagrams: results,
+  };
 }
 
 export interface ToolCallOptions {
@@ -403,12 +434,12 @@ export async function callTool(name: string, rawArgs: unknown, options: ToolCall
       const patch = asRecord(args.patch, 'patch');
       assertNoGeometry(patch, 'patch');
       const patched = applyDiagramPatch(base, patch as DiagramPatch);
-      const carriedIds = new Set(patched.nodes.map(node => node.id));
-      const preserved = base.nodes.filter(node => carriedIds.has(node.id)).map(node => node.id);
-      const removed = base.nodes.filter(node => !carriedIds.has(node.id)).map(node => node.id);
+      const carriedIds = new Set(patched.nodes.map((node) => node.id));
+      const preserved = base.nodes.filter((node) => carriedIds.has(node.id)).map((node) => node.id);
+      const removed = base.nodes.filter((node) => !carriedIds.has(node.id)).map((node) => node.id);
       const renamed = patched.nodes
-        .filter(node => !base.nodes.some(old => old.id === node.id))
-        .map(node => node.id);
+        .filter((node) => !base.nodes.some((old) => old.id === node.id))
+        .map((node) => node.id);
       return json({
         stableIds: { preserved, removed, added: renamed },
         written: await renderAndWrite(patched, out),
@@ -422,18 +453,27 @@ export async function callTool(name: string, rawArgs: unknown, options: ToolCall
           'Use diagram_plan_request to get a plan task, answer it with your own model, then diagram_plan_submit. Set "chain": true to use the arrow-chain parser.',
         );
       }
-      if (args.document || args.image || args.template) throw new Error('chain mode accepts "text" only; drop the document/image/template argument');
+      if (args.document || args.image || args.template)
+        throw new Error('chain mode accepts "text" only; drop the document/image/template argument');
       const diagram = createDiagramFromRequest(requireString(args, 'text'));
       return json({ mode: 'chain', written: await renderAndWrite(diagram, out) });
     }
     case 'diagram_plan_request': {
       const input = await buildSourceInput(args, root);
       const task = buildPlanTask(input);
-      return json({ task, note: 'Answer task.messages with any model, then call diagram_plan_submit with the same sources plus { answer }.' });
+      return json({
+        task,
+        note: 'Answer task.messages with any model, then call diagram_plan_submit with the same sources plus { answer }.',
+      });
     }
     case 'diagram_plan_submit': {
       const input = await buildSourceInput(args, root);
-      if (args.answer === undefined) throw new ToolError('MISSING_ANSWER', 'diagram_plan_submit needs "answer": the reasoner reply containing { diagram, confidence, uncertainties }.', 'Call diagram_plan_request first.');
+      if (args.answer === undefined)
+        throw new ToolError(
+          'MISSING_ANSWER',
+          'diagram_plan_submit needs "answer": the reasoner reply containing { diagram, confidence, uncertainties }.',
+          'Call diagram_plan_request first.',
+        );
       const planned = await submitPlanAnswer(input, { submission: args.answer, audit: args.audit });
       if (args.findings !== undefined) {
         const answered = await submitReviewAnswer(planned.plan.diagram, planned.layout, args.findings);
@@ -461,12 +501,17 @@ export async function callTool(name: string, rawArgs: unknown, options: ToolCall
     }
     case 'diagram_review_submit': {
       const base = await readModel(args, root);
-      if (args.findings === undefined) throw new ToolError('MISSING_FINDINGS', 'diagram_review_submit needs "findings": the reviewer answer from diagram_review_request.', 'Request a review first, inspect the bitmap, then submit findings.');
+      if (args.findings === undefined)
+        throw new ToolError(
+          'MISSING_FINDINGS',
+          'diagram_review_submit needs "findings": the reviewer answer from diagram_review_request.',
+          'Request a review first, inspect the bitmap, then submit findings.',
+        );
       const layout = await layoutDiagram(base);
       const answered = await submitReviewAnswer(base, layout, args.findings);
       return json({
-        applied: answered.issues.filter(issue => issue.code.startsWith('VISUAL_CORRECTION_APPLIED')),
-        discarded: answered.issues.filter(issue => !issue.code.startsWith('VISUAL_CORRECTION_APPLIED')),
+        applied: answered.issues.filter((issue) => issue.code.startsWith('VISUAL_CORRECTION_APPLIED')),
+        discarded: answered.issues.filter((issue) => !issue.code.startsWith('VISUAL_CORRECTION_APPLIED')),
         needsSemanticChange: answered.needsSemanticChange,
         layout: answered.diagram.layout,
         written: await renderAndWrite(answered.diagram, out),

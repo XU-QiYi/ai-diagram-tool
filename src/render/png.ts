@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 
 // Review rasterization for the visual gate (spec B §2).
 // Backend order: draw.io Desktop CLI (fidelity) -> sharp SVG rasterizer (fallback).
@@ -37,7 +37,10 @@ export interface RasterResult {
 }
 
 /** sharp's callable surface; typed loosely because sharp is resolved at runtime and ships no local dependency entry. */
-export type SharpFactory = (input: Buffer, options?: { density?: number }) => {
+export type SharpFactory = (
+  input: Buffer,
+  options?: { density?: number },
+) => {
   flatten(options?: { background?: string }): {
     png(): { toFile(target: string): Promise<{ width: number; height: number }> };
   };
@@ -113,12 +116,17 @@ export async function resolveDrawioExecutable(
   return { kind: 'unavailable', checked };
 }
 
-export interface PngMeta { width: number; height: number }
+export interface PngMeta {
+  width: number;
+  height: number;
+}
 
 export function pngDimensions(bytes: Buffer): PngMeta {
   const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
   if (bytes.length < 24 || signature.some((byte, index) => bytes[index] !== byte)) {
-    throw new Error('[render:png] produced file is not a PNG (missing signature); the raster backend wrote an unexpected format');
+    throw new Error(
+      '[render:png] produced file is not a PNG (missing signature); the raster backend wrote an unexpected format',
+    );
   }
   if (bytes.subarray(12, 16).toString('ascii') !== 'IHDR') {
     throw new Error('[render:png] PNG IHDR chunk not found; cannot read image dimensions');
@@ -146,7 +154,11 @@ async function runDrawioCliDefault(exe: string, args: string[], timeoutMs: numbe
     try {
       child = spawn(exe, args, { stdio: ['ignore', 'ignore', 'pipe'], timeout: timeoutMs, windowsHide: true });
     } catch (error) {
-      reject(new Error(`failed to spawn ${exe}: ${messageOf(error)} — DRAWIO_PATH must point at the draw.io Desktop executable itself, not a shell wrapper`));
+      reject(
+        new Error(
+          `failed to spawn ${exe}: ${messageOf(error)} — DRAWIO_PATH must point at the draw.io Desktop executable itself, not a shell wrapper`,
+        ),
+      );
       return;
     }
     child.stderr?.on('data', (chunk: Buffer) => {
@@ -155,7 +167,12 @@ async function runDrawioCliDefault(exe: string, args: string[], timeoutMs: numbe
     child.once('error', (error: Error) => reject(new Error(`spawn error for ${exe}: ${messageOf(error)}`)));
     child.once('close', (code: number | null, signal: NodeJS.Signals | null) => {
       if (code === 0) resolve();
-      else reject(new Error(`exit code ${code}${signal ? ` (signal ${signal})` : ' — the CLI may have timed out'}${stderr ? `; stderr: ${stderr}` : ''}`));
+      else
+        reject(
+          new Error(
+            `exit code ${code}${signal ? ` (signal ${signal})` : ' — the CLI may have timed out'}${stderr ? `; stderr: ${stderr}` : ''}`,
+          ),
+        );
     });
   });
 }
@@ -168,12 +185,16 @@ export async function loadSharpDefault(env: NodeJS.ProcessEnv): Promise<SharpFac
   } catch (firstError) {
     const modules = env.MIMO_NODE_MODULES;
     if (!modules) {
-      throw new Error(`[render:png] sharp-svg backend unavailable: require('sharp') failed (${messageOf(firstError)}) and MIMO_NODE_MODULES is not set — solution: point MIMO_NODE_MODULES at a node_modules directory that contains sharp (the MiMo Desktop shared runtime ships one) or install sharp locally`);
+      throw new Error(
+        `[render:png] sharp-svg backend unavailable: require('sharp') failed (${messageOf(firstError)}) and MIMO_NODE_MODULES is not set — solution: point MIMO_NODE_MODULES at a node_modules directory that contains sharp (the MiMo Desktop shared runtime ships one) or install sharp locally`,
+      );
     }
     try {
       return require(path.join(modules, 'sharp')) as SharpFactory;
     } catch (secondError) {
-      throw new Error(`[render:png] sharp-svg backend unavailable: sharp could not be loaded from MIMO_NODE_MODULES=${modules} (${messageOf(secondError)}) — solution: verify the shared runtime still contains sharp, or provide drawioPath with draw.io installed for the drawio-cli backend`);
+      throw new Error(
+        `[render:png] sharp-svg backend unavailable: sharp could not be loaded from MIMO_NODE_MODULES=${modules} (${messageOf(secondError)}) — solution: verify the shared runtime still contains sharp, or provide drawioPath with draw.io installed for the drawio-cli backend`,
+      );
     }
   }
 }
@@ -182,19 +203,25 @@ async function requireExisting(target: string, label: string): Promise<void> {
   try {
     await fs.access(target);
   } catch {
-    throw new Error(`[render:png] rasterizeForReview received ${label}="${target}" but the file does not exist — solution: render the diagram artifact first, then rasterize its path`);
+    throw new Error(
+      `[render:png] rasterizeForReview received ${label}="${target}" but the file does not exist — solution: render the diagram artifact first, then rasterize its path`,
+    );
   }
 }
 
 async function resolveOutPath(input: RasterizeInput): Promise<string> {
-  const outPath = input.outPath ?? path.join(input.outDir ?? path.join(os.tmpdir(), 'ai-diagram-reviews'), `review-${Date.now()}-${process.pid}.png`);
+  const outPath =
+    input.outPath ??
+    path.join(input.outDir ?? path.join(os.tmpdir(), 'ai-diagram-reviews'), `review-${Date.now()}-${process.pid}.png`);
   await fs.mkdir(path.dirname(outPath), { recursive: true });
   return outPath;
 }
 
 export async function rasterizeForReview(input: RasterizeInput, deps: RasterizeDeps = {}): Promise<RasterResult> {
   if (!input.drawioPath && !input.svgPath) {
-    throw new Error('[render:png] rasterizeForReview needs at least one of drawioPath (for the drawio-cli backend) or svgPath (for the sharp-svg fallback); refusing to silently produce nothing');
+    throw new Error(
+      '[render:png] rasterizeForReview needs at least one of drawioPath (for the drawio-cli backend) or svgPath (for the sharp-svg fallback); refusing to silently produce nothing',
+    );
   }
   const env = deps.env ?? process.env;
   const outPath = await resolveOutPath(input);
@@ -203,7 +230,9 @@ export async function rasterizeForReview(input: RasterizeInput, deps: RasterizeD
   if (input.drawioPath) {
     const resolution = await resolveDrawioExecutable(env, deps.executableExists ?? defaultExecutableExists);
     if (resolution.kind === 'env-missing') {
-      throw new Error(`[render:png] DRAWIO_PATH points to a missing executable: "${resolution.exe}" — solution: fix DRAWIO_PATH to a real draw.io Desktop binary, or unset it to auto-detect, or rerun with only svgPath to use the sharp-svg fallback backend`);
+      throw new Error(
+        `[render:png] DRAWIO_PATH points to a missing executable: "${resolution.exe}" — solution: fix DRAWIO_PATH to a real draw.io Desktop binary, or unset it to auto-detect, or rerun with only svgPath to use the sharp-svg fallback backend`,
+      );
     }
     if (resolution.kind === 'resolved') {
       await requireExisting(input.drawioPath, 'drawioPath');
@@ -211,7 +240,9 @@ export async function rasterizeForReview(input: RasterizeInput, deps: RasterizeD
       try {
         await (deps.runDrawioCli ?? runDrawioCliDefault)(resolution.exe, args, input.timeoutMs ?? 60_000);
       } catch (error) {
-        throw new Error(`[render:png] the draw.io CLI (backend drawio-cli, resolved via ${resolution.via}) failed to convert ${input.drawioPath} -> ${outPath}: ${messageOf(error)} — solution: check that draw.io Desktop runs standalone, raise timeoutMs, or fall back to the sharp-svg backend by passing svgPath only (sharp must be loadable)`);
+        throw new Error(
+          `[render:png] the draw.io CLI (backend drawio-cli, resolved via ${resolution.via}) failed to convert ${input.drawioPath} -> ${outPath}: ${messageOf(error)} — solution: check that draw.io Desktop runs standalone, raise timeoutMs, or fall back to the sharp-svg backend by passing svgPath only (sharp must be loadable)`,
+        );
       }
       const meta = pngDimensions(await fs.readFile(outPath));
       return { pngPath: outPath, backend: 'drawio-cli', ...meta };
@@ -220,7 +251,9 @@ export async function rasterizeForReview(input: RasterizeInput, deps: RasterizeD
   }
 
   if (!input.svgPath) {
-    throw new Error(`[render:png] no raster backend available: ${drawioUnavailableNote} — solution: install draw.io Desktop, set DRAWIO_PATH, or pass svgPath so the sharp-svg fallback backend can be used (requires sharp via MIMO_NODE_MODULES)`);
+    throw new Error(
+      `[render:png] no raster backend available: ${drawioUnavailableNote} — solution: install draw.io Desktop, set DRAWIO_PATH, or pass svgPath so the sharp-svg fallback backend can be used (requires sharp via MIMO_NODE_MODULES)`,
+    );
   }
   await requireExisting(input.svgPath, 'svgPath');
   const sharp = await (deps.loadSharp ?? loadSharpDefault)(env);
@@ -229,7 +262,9 @@ export async function rasterizeForReview(input: RasterizeInput, deps: RasterizeD
   try {
     info = await sharp(Buffer.from(svg), { density: 216 }).flatten({ background: '#FFFFFF' }).png().toFile(outPath);
   } catch (error) {
-    throw new Error(`[render:png] the sharp-svg backend failed to rasterize ${input.svgPath} -> ${outPath}: ${messageOf(error)} — solution: check the SVG is well-formed, or use the drawio-cli backend with a .drawio file`);
+    throw new Error(
+      `[render:png] the sharp-svg backend failed to rasterize ${input.svgPath} -> ${outPath}: ${messageOf(error)} — solution: check the SVG is well-formed, or use the drawio-cli backend with a .drawio file`,
+    );
   }
   return { pngPath: outPath, backend: 'sharp-svg', ...info };
 }

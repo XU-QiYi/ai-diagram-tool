@@ -1,25 +1,30 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { Diagram, LayoutResult, ValidationIssue } from '../model/types.js';
-import type { PreparedInput } from '../ai/types.js';
-import { acceptAgentPlan, type AgentPlanSubmission } from '../ai/pipeline.js';
-import type { PlannedDiagram } from '../ai/types.js';
+import { type AgentPlanSubmission, acceptAgentPlan } from '../ai/pipeline.js';
+import type { PlannedDiagram, PreparedInput } from '../ai/types.js';
 import { layoutDiagram } from '../layout/elk.js';
+import type { Diagram, LayoutResult, ValidationIssue } from '../model/types.js';
 import { renderDrawio } from '../render/drawio.js';
-import { renderSvg } from '../render/svg.js';
+import type { RasterResult } from '../render/png.js';
 import { rasterizeForReview } from '../render/png.js';
+import { renderSvg } from '../render/svg.js';
 import {
-  DEFAULT_VISUAL_MAX_ROUNDS,
-  VISUAL_LAYOUT_FIELDS,
-  VISUAL_REVIEW_SYSTEM_PROMPT,
   applyVisualCorrection,
+  DEFAULT_VISUAL_MAX_ROUNDS,
   describeVisualGeometry,
   sanitizeVisualFindings,
+  VISUAL_LAYOUT_FIELDS,
+  VISUAL_REVIEW_SYSTEM_PROMPT,
   visualElementIds,
   visualFindingsToIssues,
 } from '../validate/visual.js';
-import type { RasterResult } from '../render/png.js';
-import { AUDIT_SYSTEM_PROMPT, PLAN_SYSTEM_PROMPT, auditUserContent, planUserContent, reviseUserContent } from './prompts.js';
+import {
+  AUDIT_SYSTEM_PROMPT,
+  auditUserContent,
+  PLAN_SYSTEM_PROMPT,
+  planUserContent,
+  reviseUserContent,
+} from './prompts.js';
 
 /**
  * The agent-facing half of the pipeline.
@@ -43,7 +48,10 @@ export function buildPlanTask(input: PreparedInput, previous?: unknown, problems
   if (previous !== undefined) content.push(...reviseUserContent(previous, problems ?? []));
   return {
     system: PLAN_SYSTEM_PROMPT,
-    messages: [{ role: 'system', content: PLAN_SYSTEM_PROMPT }, { role: 'user', content }],
+    messages: [
+      { role: 'system', content: PLAN_SYSTEM_PROMPT },
+      { role: 'user', content },
+    ],
     audit: { system: AUDIT_SYSTEM_PROMPT, extraContent: auditUserContent(previous ?? {}) },
     rules: [
       'Return one JSON object: { diagram, confidence, uncertainties }.',
@@ -106,12 +114,21 @@ export async function buildReviewTask(layout: LayoutResult, options: ReviewTaskO
       fs.writeFile(svgPath, renderSvg(layout), 'utf8'),
       fs.writeFile(drawioPath, renderDrawio(layout), 'utf8'),
     ]);
-    raster = await rasterizeForReview({ drawioPath, svgPath, outPath: path.join(dir, `${layout.diagram.id}.r${round}.png`), scale: options.scale ?? 2, timeoutMs: options.timeoutMs ?? 60_000 }, { env: options.env });
+    raster = await rasterizeForReview(
+      {
+        drawioPath,
+        svgPath,
+        outPath: path.join(dir, `${layout.diagram.id}.r${round}.png`),
+        scale: options.scale ?? 2,
+        timeoutMs: options.timeoutMs ?? 60_000,
+      },
+      { env: options.env },
+    );
     pngPath = raster.pngPath;
   }
   return {
     pngPath,
-    backend: raster?.backend ?? 'unknown' as RasterResult['backend'],
+    backend: raster?.backend ?? ('unknown' as RasterResult['backend']),
     width: raster?.width ?? 0,
     height: raster?.height ?? 0,
     round,
@@ -120,7 +137,8 @@ export async function buildReviewTask(layout: LayoutResult, options: ReviewTaskO
     geometryFacts: describeVisualGeometry(layout),
     allowedFields: VISUAL_LAYOUT_FIELDS,
     system: VISUAL_REVIEW_SYSTEM_PROMPT,
-    answerContract: '{"findings":[{"code":"VISUAL_CROWDED","elementId":"<one of elementIds>","severity":"ERROR|WARNING|INFO","observation":"...","hint":"increase nodeSpacing"}]} — coordinates are discarded.',
+    answerContract:
+      '{"findings":[{"code":"VISUAL_CROWDED","elementId":"<one of elementIds>","severity":"ERROR|WARNING|INFO","observation":"...","hint":"increase nodeSpacing"}]} — coordinates are discarded.',
   };
 }
 
@@ -143,14 +161,19 @@ export interface ReviewAnswerOptions {
  * dropped), move them into `LayoutPreferences`, and re-run ELK. The reviewer never
  * places anything; ELK stays the only authority over geometry.
  */
-export async function submitReviewAnswer(diagram: Diagram, layout: LayoutResult, rawFindings: unknown, options: ReviewAnswerOptions = {}): Promise<ReviewAnswerResult> {
+export async function submitReviewAnswer(
+  diagram: Diagram,
+  layout: LayoutResult,
+  rawFindings: unknown,
+  options: ReviewAnswerOptions = {},
+): Promise<ReviewAnswerResult> {
   const sanitized = sanitizeVisualFindings(rawFindings, visualElementIds(diagram));
   const changed = applyVisualCorrection(diagram, sanitized.findings, layout);
   const corrections = diagramPreferencesDiff(diagram.layout, changed.layout);
   const issues: ValidationIssue[] = [
     ...sanitized.issues,
     ...visualFindingsToIssues(sanitized.findings, 'visual'),
-    ...corrections.map(item => ({
+    ...corrections.map((item) => ({
       severity: 'INFO' as const,
       code: 'VISUAL_CORRECTION_APPLIED:visual',
       message: `Applied ${item.field}: ${String(item.from)} -> ${String(item.to)}`,
@@ -158,13 +181,28 @@ export async function submitReviewAnswer(diagram: Diagram, layout: LayoutResult,
     })),
   ];
   if (!corrections.length) {
-    return { diagram, layout, findings: sanitized.findings, issues, needsSemanticChange: sanitized.findings.length > 0 };
+    return {
+      diagram,
+      layout,
+      findings: sanitized.findings,
+      issues,
+      needsSemanticChange: sanitized.findings.length > 0,
+    };
   }
   const relayout = options.relayout ?? ((next: Diagram) => layoutDiagram(next));
-  return { diagram: changed, layout: await relayout(changed), findings: sanitized.findings, issues, needsSemanticChange: false };
+  return {
+    diagram: changed,
+    layout: await relayout(changed),
+    findings: sanitized.findings,
+    issues,
+    needsSemanticChange: false,
+  };
 }
 
-function diagramPreferencesDiff(before: Diagram['layout'], after: Diagram['layout']): Array<{ field: string; from: unknown; to: unknown }> {
+function diagramPreferencesDiff(
+  before: Diagram['layout'],
+  after: Diagram['layout'],
+): Array<{ field: string; from: unknown; to: unknown }> {
   const changed: Array<{ field: string; from: unknown; to: unknown }> = [];
   for (const field of VISUAL_LAYOUT_FIELDS) {
     const from = before?.[field as keyof typeof before];

@@ -1,6 +1,6 @@
-import type { Diagram, LayoutEdge, LayoutNode, LayoutResult } from "../model/types.js";
-import { measureNode } from "../utils/text.js";
-import { validateLayout } from "../validate/index.js";
+import type { Diagram, LayoutEdge, LayoutNode, LayoutResult } from '../model/types.js';
+import { measureNode } from '../utils/text.js';
+import { validateLayout } from '../validate/index.js';
 
 const H_GAP = 70;
 const V_GAP = 26;
@@ -26,9 +26,7 @@ interface Box {
  */
 export function mindmapLayout(diagram: Diagram): LayoutResult {
   const pad = 80;
-  const sizes = new Map(
-    diagram.nodes.map((n) => [n.id, measureNode(n, diagram.type)]),
-  );
+  const sizes = new Map(diagram.nodes.map((n) => [n.id, measureNode(n, diagram.type)]));
   const childrenOf = new Map<string, string[]>();
   const hasIncoming = new Set<string>();
   for (const e of diagram.edges) {
@@ -36,7 +34,7 @@ export function mindmapLayout(diagram: Diagram): LayoutResult {
     hasIncoming.add(e.target);
   }
   const root =
-    diagram.nodes.find((n) => n.kind === "root") ??
+    diagram.nodes.find((n) => n.kind === 'root') ??
     diagram.nodes.find((n) => !hasIncoming.has(n.id)) ??
     diagram.nodes[0];
   if (!root) {
@@ -49,7 +47,7 @@ export function mindmapLayout(diagram: Diagram): LayoutResult {
       height: 2 * pad,
       warnings: [],
       iterations: 1,
-      status: "passed",
+      status: 'passed',
     };
   }
 
@@ -59,26 +57,19 @@ export function mindmapLayout(diagram: Diagram): LayoutResult {
     visiting.add(id);
     const h = sizes.get(id)!.height;
     const kids = childrenOf.get(id) ?? [];
-    const total =
-      kids.reduce((sum, k) => sum + heightOf(k), 0) + V_GAP * (kids.length - 1);
+    const total = kids.reduce((sum, k) => sum + heightOf(k), 0) + V_GAP * (kids.length - 1);
     visiting.delete(id);
     return Math.max(h, total);
   };
 
   const placed = new Map<string, Box>();
-  const placeSubtree = (
-    id: string,
-    innerX: number,
-    yTop: number,
-    dir: 1 | -1,
-  ): void => {
+  const placeSubtree = (id: string, innerX: number, yTop: number, dir: 1 | -1): void => {
     if (placed.has(id) || visiting.has(id)) return;
     visiting.add(id);
     const { width: w, height: h } = sizes.get(id)!;
     const kids = childrenOf.get(id) ?? [];
     const spans = kids.map(heightOf);
-    const total =
-      spans.reduce((sum, s) => sum + s, 0) + V_GAP * (kids.length - 1);
+    const total = spans.reduce((sum, s) => sum + s, 0) + V_GAP * (kids.length - 1);
     // A parent taller than its children's stack must not push the stack outside this
     // subtree's slot, or siblings overlap: center the stack inside the parent's height.
     let cy = yTop + Math.max(0, (h - total) / 2);
@@ -89,10 +80,7 @@ export function mindmapLayout(diagram: Diagram): LayoutResult {
     });
     const first = placed.get(kids[0]);
     const last = placed.get(kids[kids.length - 1]);
-    const yc =
-      first && last
-        ? (first.y + first.h / 2 + last.y + last.h / 2) / 2
-        : yTop + h / 2;
+    const yc = first && last ? (first.y + first.h / 2 + last.y + last.h / 2) / 2 : yTop + h / 2;
     placed.set(id, { id, x: dir > 0 ? innerX : innerX - w, y: yc - h / 2, w, h });
     visiting.delete(id);
   };
@@ -106,13 +94,12 @@ export function mindmapLayout(diagram: Diagram): LayoutResult {
   for (const kid of byHeight) {
     const side = load.right <= load.left ? 1 : -1;
     sideOf.set(kid, side);
-    load[side > 0 ? "right" : "left"] += heightOf(kid) + V_GAP;
+    load[side > 0 ? 'right' : 'left'] += heightOf(kid) + V_GAP;
   }
   const extent = Math.max(1, ...rootKids.map((k) => heightOf(k)));
   for (const side of [1, -1] as const) {
     const kids = rootKids.filter((k) => sideOf.get(k) === side);
-    const sideHeight =
-      kids.reduce((sum, k) => sum + heightOf(k), 0) + V_GAP * (kids.length - 1);
+    const sideHeight = kids.reduce((sum, k) => sum + heightOf(k), 0) + V_GAP * (kids.length - 1);
     let yTop = (extent - sideHeight) / 2;
     for (const kid of kids) {
       placeSubtree(kid, side > 0 ? rootW + H_GAP : -H_GAP, yTop, side);
@@ -179,7 +166,7 @@ export function mindmapLayout(diagram: Diagram): LayoutResult {
     height: maxY - minY + 2 * pad,
     warnings: [],
     iterations: 1,
-    status: "passed",
+    status: 'passed',
   };
   // Same validator contract as the ELK path, same status convention as its
   // iterationStatus(): ERROR → failed, WARNING → passed_with_warnings, INFO → passed.
@@ -187,10 +174,10 @@ export function mindmapLayout(diagram: Diagram): LayoutResult {
   return {
     ...result,
     issues: report.issues,
-    status: report.issues.some((i) => i.severity === "ERROR")
-      ? "failed_composition_needed"
-      : report.issues.some((i) => i.severity === "WARNING")
-        ? "passed_with_warnings"
-        : "passed",
+    status: report.issues.some((i) => i.severity === 'ERROR')
+      ? 'failed_composition_needed'
+      : report.issues.some((i) => i.severity === 'WARNING')
+        ? 'passed_with_warnings'
+        : 'passed',
   };
 }

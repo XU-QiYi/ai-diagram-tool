@@ -28,6 +28,9 @@ const sha256 = (file: string): string => createHash('sha256').update(fs.readFile
  */
 const HAND_WRITTEN: Readonly<Record<string, string>> = {
   'patch-add-redis.json': 'README 的 `--patch` 示例，手写 fixture，不是生成产物',
+  'adapter/adapter.mjs': 'reference adapter 本体，手写（P1「一句话出图」，src/ 之外），不是生成产物',
+  'adapter/demo.mjs': '三条命令 demo 的驱动脚本，手写，不是生成产物',
+  'adapter/README.md': 'adapter 用法说明，手写，不是生成产物',
 };
 
 function walk(dir: string, prefix = '', out: Map<string, string> = new Map()): Map<string, string> {
@@ -76,13 +79,17 @@ function main(): void {
   }
 
   if (problems.length) {
-    process.stderr.write(`[verify-examples] ${problems.length} problem(s):\n${problems.map((p) => `  - ${p}`).join('\n')}\n`);
+    process.stderr.write(
+      `[verify-examples] ${problems.length} problem(s):\n${problems.map((p) => `  - ${p}`).join('\n')}\n`,
+    );
     process.stderr.write('  Fix: run `npm run examples` and commit the regenerated artifacts.\n');
     process.exitCode = 1;
     return;
   }
 
-  process.stdout.write(`[verify-examples] ${committed.size} artifacts identical between the fresh run and the committed tree\n`);
+  process.stdout.write(
+    `[verify-examples] ${committed.size} artifacts identical between the fresh run and the committed tree\n`,
+  );
 }
 
 main();

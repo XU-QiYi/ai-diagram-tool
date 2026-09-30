@@ -22,7 +22,11 @@ export const FORBIDDEN_GEOMETRY_KEYS: readonly string[] = [
 
 /** A request the server understands but refuses; reported as a structured tool error. */
 export class ToolError extends Error {
-  constructor(readonly code: string, message: string, readonly hint?: string) {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly hint?: string,
+  ) {
     super(message);
     this.name = 'ToolError';
   }

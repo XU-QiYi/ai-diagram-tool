@@ -16,10 +16,17 @@ Extract only elements supported by the supplied material. Do not fill gaps with 
 export const AUDIT_SYSTEM_PROMPT = `Independently review a candidate Diagram DSL against all supplied sources. Return only JSON: {"confidence": number, "missing": [{"source": "request|document|image|template", "quote": string, "reason": string}], "unsupportedElementIds": string[]}. Identify diagram-relevant requirements omitted from the diagram and elements unsupported by the sources. For text, document, and JSON template, missing.quote must exactly occur in the source. For an image, quote should describe a specific visible item. Do not invent requirements. An empty missing array means you found no omission; it does not prove completeness.`;
 
 /** Build the `user` content parts for a plan turn from prepared sources. */
-export function planUserContent(sources: Array<{ kind: string; name: string; text?: string; dataUrl?: string }>): Array<Record<string, unknown>> {
-  const content: Array<Record<string, unknown>> = [{ type: 'text', text: 'Create a Diagram DSL from these sources. Source names and kinds are authoritative.\n' }];
+export function planUserContent(
+  sources: Array<{ kind: string; name: string; text?: string; dataUrl?: string }>,
+): Array<Record<string, unknown>> {
+  const content: Array<Record<string, unknown>> = [
+    { type: 'text', text: 'Create a Diagram DSL from these sources. Source names and kinds are authoritative.\n' },
+  ];
   for (const source of sources) {
-    content.push({ type: 'text', text: `SOURCE ${source.kind} (${source.name}):\n${source.text ?? '[image follows]'}` });
+    content.push({
+      type: 'text',
+      text: `SOURCE ${source.kind} (${source.name}):\n${source.text ?? '[image follows]'}`,
+    });
     if (source.dataUrl) content.push({ type: 'image_url', image_url: { url: source.dataUrl, detail: 'high' } });
   }
   return content;
@@ -27,7 +34,12 @@ export function planUserContent(sources: Array<{ kind: string; name: string; tex
 
 /** Additional user content for a revision turn: prior answer plus the problems to fix. */
 export function reviseUserContent(previous: unknown, issues: unknown): Array<Record<string, unknown>> {
-  return [{ type: 'text', text: `Revise the previous plan. Keep IDs for unchanged elements.\nPrevious: ${JSON.stringify(previous)}\nProblems: ${JSON.stringify(issues)}` }];
+  return [
+    {
+      type: 'text',
+      text: `Revise the previous plan. Keep IDs for unchanged elements.\nPrevious: ${JSON.stringify(previous)}\nProblems: ${JSON.stringify(issues)}`,
+    },
+  ];
 }
 
 /** Additional user content for an audit turn. */

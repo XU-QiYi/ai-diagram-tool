@@ -2,8 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { layoutDiagram } from '../src/layout/elk.js';
-import { renderDrawio, renderSvg } from '../src/render/index.js';
 import type { Diagram } from '../src/model/types.js';
+import { renderDrawio, renderSvg } from '../src/render/index.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -23,13 +23,15 @@ async function main() {
     console.warn(`[Layout Warning] ${diagram.id}: ${layout.warnings.join('; ')}`);
   }
 
-  console.log(`Generated ${diagram.id} (${layout.nodes.length} nodes, ${layout.edges.length} edges, ${layout.iterations} iteration(s))`);
+  console.log(
+    `Generated ${diagram.id} (${layout.nodes.length} nodes, ${layout.edges.length} edges, ${layout.iterations} iteration(s))`,
+  );
   console.log(`Output files:`);
-  console.log(`  - ${path.join(outputDir, diagram.id + '.drawio')}`);
-  console.log(`  - ${path.join(outputDir, diagram.id + '.svg')}`);
+  console.log(`  - ${path.join(outputDir, `${diagram.id}.drawio`)}`);
+  console.log(`  - ${path.join(outputDir, `${diagram.id}.svg`)}`);
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error(err);
   process.exitCode = 1;
 });

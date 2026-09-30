@@ -1,7 +1,7 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
+import test from 'node:test';
 import { deflateSync } from 'node:zlib';
-import { diffPng, decodePng } from '../scripts/visual-diff.js';
+import { decodePng, diffPng } from '../scripts/visual-diff.js';
 
 // The golden gate compares pixels, so its decoder must be a real one: a wrong unfilter
 // would produce garbage that still compares "equal to itself". These tests build tiny
@@ -32,7 +32,6 @@ function png(width: number, height: number, colorType: 0 | 2 | 6, rows: Uint8Arr
   ihdr.writeUInt32BE(height, 4);
   ihdr[8] = 8;
   ihdr[9] = colorType;
-  const stride = width * (colorType === 6 ? 4 : colorType === 2 ? 3 : 1);
   // Each row already carries its own filter byte as its first element — the fixtures
   // encode real deltas, so overwriting it here would silently turn every row into None.
   const raw = Buffer.concat(rows.map((row) => Buffer.from(row)));
@@ -67,7 +66,11 @@ function encodeRow(filter: number, raw: Uint8Array, bpp: number, previousRaw: Ui
 
 function paeth(a: number, b: number, c: number): number {
   const p = a + b - c;
-  return Math.abs(p - a) <= Math.abs(p - b) && Math.abs(p - a) <= Math.abs(p - c) ? a : Math.abs(p - b) <= Math.abs(p - c) ? b : c;
+  return Math.abs(p - a) <= Math.abs(p - b) && Math.abs(p - a) <= Math.abs(p - c)
+    ? a
+    : Math.abs(p - b) <= Math.abs(p - c)
+      ? b
+      : c;
 }
 
 test('the decoder really unfilters all five PNG filter types, not just None', () => {
@@ -75,13 +78,15 @@ test('the decoder really unfilters all five PNG filter types, not just None', ()
   // If any unfilter were wrong, the decoded colour would differ between rows.
   const width = 4;
   const raw = new Uint8Array([255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 0]);
-  const rows = [1, 2, 3, 4, 0].map((filter, index) =>
-    encodeRow(filter, raw, 3, index === 0 ? null : raw),
-  );
+  const rows = [1, 2, 3, 4, 0].map((filter, index) => encodeRow(filter, raw, 3, index === 0 ? null : raw));
   const decoded = decodePng(png(width, rows.length, 2, rows));
   for (let x = 0; x < width; x++) {
     const at = x * 4;
-    assert.deepEqual([decoded.data[at], decoded.data[at + 1], decoded.data[at + 2]], [255, 0, 0], `filter type ${x} decoded wrong`);
+    assert.deepEqual(
+      [decoded.data[at], decoded.data[at + 1], decoded.data[at + 2]],
+      [255, 0, 0],
+      `filter type ${x} decoded wrong`,
+    );
   }
 });
 

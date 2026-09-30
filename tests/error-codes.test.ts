@@ -1,11 +1,11 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { AESTHETIC_LAYOUT_CODES, AUTHOR_JUDGEMENT_CODES } from '../src/validate/policy.js';
-import { DEFAULT_RELAYOUT_CODES, SPACING_FIXABLE } from '../src/layout/elk.js';
-import { UML_RULE_CODES } from '../src/validate/uml-rules.js';
+import test from 'node:test';
 import { ERROR_CODE_REGISTRY, NON_CODE_LITERALS } from '../scripts/error-code-registry.js';
-import { scanSourceCodes, parityProblems, renderDoc, buildRows, DOC_PATH } from '../scripts/generate-error-codes.js';
+import { buildRows, DOC_PATH, parityProblems, renderDoc, scanSourceCodes } from '../scripts/generate-error-codes.js';
+import { DEFAULT_RELAYOUT_CODES, SPACING_FIXABLE } from '../src/layout/elk.js';
+import { AESTHETIC_LAYOUT_CODES, AUTHOR_JUDGEMENT_CODES } from '../src/validate/policy.js';
+import { UML_RULE_CODES } from '../src/validate/uml-rules.js';
 
 // The doc is generated, so what needs testing is the generator's own contract: that it
 // cannot silently skip a code, that the committed file is the one it would write, and that
@@ -28,7 +28,10 @@ test('the generated doc has no placeholder or empty cells', () => {
   assert.doesNotMatch(doc, /TODO|TBD|FIXME|lorem|xxxx|\{\{|\$VAR\$/i, 'leftover placeholder in generated doc');
   for (const line of doc.split('\n')) {
     if (!line.startsWith('|')) continue;
-    const cells = line.split('|').slice(1, -1).map((cell) => cell.trim());
+    const cells = line
+      .split('|')
+      .slice(1, -1)
+      .map((cell) => cell.trim());
     assert.ok(!cells.some((cell) => cell === ''), `empty table cell in: ${line.slice(0, 120)}`);
   }
 });
@@ -77,7 +80,10 @@ test('codes that bypass applyProfile are declared, so the ai-led column cannot l
   // profiles. Without `notProfiled` the generator would compute a downgrade that never
   // happens at runtime. tests/agent-intake.test.ts pins the runtime side.
   const exempt = Object.entries(ERROR_CODE_REGISTRY).filter(([, entry]) => entry.notProfiled);
-  assert.deepEqual(exempt.map(([code]) => code), ['SEMANTIC_AUDIT_SKIPPED']);
+  assert.deepEqual(
+    exempt.map(([code]) => code),
+    ['SEMANTIC_AUDIT_SKIPPED'],
+  );
   const row = buildRows(scanSourceCodes()).find((r) => r.code === 'SEMANTIC_AUDIT_SKIPPED')!;
   assert.equal(row.aiLedSeverity, 'WARNING');
   assert.equal(row.strictSeverity, 'WARNING');

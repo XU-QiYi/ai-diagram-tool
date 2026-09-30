@@ -1,7 +1,7 @@
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { TOOL_DEFINITIONS, callTool } from './tools.js';
+import { callTool, TOOL_DEFINITIONS } from './tools.js';
 
 const PROTOCOL_VERSION = '2025-06-18';
 const SUPPORTED_PROTOCOLS = new Set(['2025-06-18', '2025-03-26', '2024-11-05']);
@@ -49,7 +49,9 @@ async function handleRequest(
     case 'initialize': {
       const requested = typeof params.protocolVersion === 'string' ? params.protocolVersion : PROTOCOL_VERSION;
       const protocolVersion = SUPPORTED_PROTOCOLS.has(requested) ? requested : PROTOCOL_VERSION;
-      debug(`initialize client=${String((params.clientInfo as Record<string, unknown> | undefined)?.name ?? 'unknown')} protocol=${protocolVersion}`);
+      debug(
+        `initialize client=${String((params.clientInfo as Record<string, unknown> | undefined)?.name ?? 'unknown')} protocol=${protocolVersion}`,
+      );
       return reply(id, {
         protocolVersion,
         capabilities: { tools: { listChanged: false } },
@@ -66,15 +68,20 @@ async function handleRequest(
       return reply(id, { tools: TOOL_DEFINITIONS });
     case 'tools/call': {
       const name = typeof params.name === 'string' ? params.name : '';
-      if (!TOOL_DEFINITIONS.some(tool => tool.name === name)) {
-        return failure(id, -32602, `Unknown tool "${name}"; available tools: ${TOOL_DEFINITIONS.map(tool => tool.name).join(', ')}`);
+      if (!TOOL_DEFINITIONS.some((tool) => tool.name === name)) {
+        return failure(
+          id,
+          -32602,
+          `Unknown tool "${name}"; available tools: ${TOOL_DEFINITIONS.map((tool) => tool.name).join(', ')}`,
+        );
       }
       try {
         // Tool failures are reported inside the result so the client keeps working.
         return reply(id, await callTool(name, params.arguments, { root: workspaceRoot }));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        const code = typeof (error as { code?: unknown })?.code === 'string' ? (error as { code: string }).code : 'MCP_TOOL_ERROR';
+        const code =
+          typeof (error as { code?: unknown })?.code === 'string' ? (error as { code: string }).code : 'MCP_TOOL_ERROR';
         debug(`${name} failed: ${message}`);
         return reply(id, { content: [{ type: 'text', text: `[${code}] ${message}` }], isError: true });
       }
@@ -123,7 +130,9 @@ async function main(): Promise<void> {
     const shown = typeof address === 'object' && address !== null ? `${address.address}:${address.port}` : String(port);
     debug(`MCP endpoint listening on http://${shown}${'/mcp'}`);
     debug('security: Origin header validated, Host header validated, bound to the address above only.');
-    debug('set DIAGRAM_MCP_HTTP_HOST=0.0.0.0 to expose it beyond this machine — only with DIAGRAM_MCP_HTTP_ORIGIN set to the origins you trust.');
+    debug(
+      'set DIAGRAM_MCP_HTTP_HOST=0.0.0.0 to expose it beyond this machine — only with DIAGRAM_MCP_HTTP_ORIGIN set to the origins you trust.',
+    );
     return;
   }
   const lines = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -131,7 +140,7 @@ async function main(): Promise<void> {
   // fight over the same output files.
   let queue: Promise<unknown> = Promise.resolve();
 
-  lines.on('line', line => {
+  lines.on('line', (line) => {
     const trimmed = line.trim();
     if (!trimmed) return;
     let frame: JsonRpcId & { method?: string; params?: unknown };
@@ -143,7 +152,7 @@ async function main(): Promise<void> {
     }
     queue = queue
       .then(() => handleRequest(frame, root))
-      .then(message => {
+      .then((message) => {
         if (message) write(process.stdout, message);
       })
       .catch((error: unknown) => {
@@ -160,7 +169,8 @@ async function main(): Promise<void> {
 
 // Match only this module's own entry point, so importing the server from the
 // test suite or another tool never starts a stdio loop.
-const isDirectRun = Boolean(process.argv[1]) && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+const isDirectRun =
+  Boolean(process.argv[1]) && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 if (isDirectRun) {
   main().catch((error: unknown) => {
     debug(`fatal: ${error instanceof Error ? error.message : String(error)}`);
@@ -168,5 +178,5 @@ if (isDirectRun) {
   });
 }
 
-export { SERVER_INSTRUCTIONS, SERVER_INFO, SUPPORTED_PROTOCOLS, handleRequest, main };
+export { handleRequest, main, SERVER_INFO, SERVER_INSTRUCTIONS, SUPPORTED_PROTOCOLS };
 export const jsonRpcFailure = failure;

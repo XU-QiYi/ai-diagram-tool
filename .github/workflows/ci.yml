@@ -30,10 +30,9 @@ jobs:
       - name: Install
         run: npm ci
 
-      # lint 只查代码问题，不查格式——格式化是单独一次提交（见 biome.json 的说明）。
-      # 全仓 format 一旦应用，把这一行换成 `biome ci` 即可同时守住格式。
-      - name: Lint
-        run: npx biome lint
+      # biome ci 同时守住代码问题与格式（全仓已格式化一次，见 biome.json）。
+      - name: Lint + format
+        run: npx biome ci
 
       - name: Build
         run: npm run build
@@ -59,3 +58,29 @@ jobs:
           sudo apt-get install -y draw.io 2>/dev/null \
             || echo "::warning::draw.io Desktop unavailable; the golden-image gate is skipped, not passed"
           npm run visual-gate
+
+  windows:
+    # 平台相关代码（draw.io Desktop 安装路径探测、Windows 特有的 EPERM/盘根守卫）
+    # 只在 ubuntu 上测不到——这里守 lint/build/test；示例逐字节比对与视觉门禁
+    # 依赖 checkout 换行符与真实 renderer，仍归 ubuntu job。
+    name: lint + build + test (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint + format
+        run: npx biome ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
