@@ -4,14 +4,11 @@ import { validateUmlIssues } from './uml-rules.js';
 import { measureNode } from '../utils/text.js';
 import { applyProfile } from './policy.js';
 export { validateSemantics, validateSemanticIssues } from './semantics.js';
-export { validateUmlSemantics, validateUmlIssues } from './uml-rules.js';
+export { validateUmlSemantics, validateUmlIssues, collectUmlFindings, UML_RULE_CODES } from './uml-rules.js';
+export type { UmlFinding, UmlRuleCode } from './uml-rules.js';
 export { validateRenderOutputs } from './render.js';
 export { applyProfile, resolveProfile, DEFAULT_VALIDATION_PROFILE, AESTHETIC_LAYOUT_CODES, AUTHOR_JUDGEMENT_CODES } from './policy.js';
 export type { ValidationSeverity, ValidationPhase, ValidationIssue, ValidationReport, ValidationProfile } from '../model/types.js';
-
-function legacyIssueCode(message: string): string {
-  return message.replace(/^\[UML\]\s*/i, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').toUpperCase().slice(0, 80) || 'VALIDATION_ISSUE';
-}
 
 function overlap(a: any, b: any) { return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y; }
 const GEOMETRY_EPSILON = 1e-9;
@@ -67,9 +64,9 @@ export function validateLayout(layout: LayoutResult): ValidationReport {
     // preview would silently omit. The two must never look the same to a caller.
     if (!e.sections || e.sections.length === 0) add('ERROR', 'EDGE_UNROUTED', `Edge was not routed: ${e.id}`, e.id, `/edges/${index}`);
     const points = (e.sections ?? []).flatMap(s => [s.startPoint, ...(s.bendPoints ?? []), s.endPoint]);
-    for (let pointIndex = 0; pointIndex < points.length - 1; pointIndex++) for (const [nodeIndex, n] of nodes.entries()) if (n.id !== e.source && n.id !== e.target && segmentHitsRect(points[pointIndex], points[pointIndex + 1], n)) add('ERROR', 'EDGE_THROUGH_NODE', `Edge through node: ${e.id} → ${n.id}`, e.id, `/edges/${index}/sections/${pointIndex}`);
+    for (let pointIndex = 0; pointIndex < points.length - 1; pointIndex++) for (const n of nodes.values()) if (n.id !== e.source && n.id !== e.target && segmentHitsRect(points[pointIndex], points[pointIndex + 1], n)) add('ERROR', 'EDGE_THROUGH_NODE', `Edge through node: ${e.id} → ${n.id}`, e.id, `/edges/${index}/sections/${pointIndex}`);
     if (polylineLength(points) > Math.max(layout.width, layout.height) * 0.8) add('WARNING', 'EXTREMELY_LONG_EDGE', `Extremely long edge: ${e.id}`, e.id, `/edges/${index}`);
-    for (const [labelIndex, label] of (e.labels ?? []).entries()) for (const [nodeIndex, n] of nodes.entries()) if (n.id !== e.source && n.id !== e.target && rectOverlap(label,n)) add('ERROR', 'EDGE_LABEL_OVERLAP', `Edge label overlap: ${e.id} / ${n.id}`, e.id, `/edges/${index}/labels/${labelIndex}`);
+    for (const [labelIndex, label] of (e.labels ?? []).entries()) for (const n of nodes.values()) if (n.id !== e.source && n.id !== e.target && rectOverlap(label,n)) add('ERROR', 'EDGE_LABEL_OVERLAP', `Edge label overlap: ${e.id} / ${n.id}`, e.id, `/edges/${index}/labels/${labelIndex}`);
   }
   for (let i=0;i<layout.edges.length;i++) for (let j=i+1;j<layout.edges.length;j++) {
     const a=layout.edges[i], b=layout.edges[j];
@@ -96,8 +93,6 @@ export function validateLayout(layout: LayoutResult): ValidationReport {
   for(let i=0;i<layout.containers.length;i++) for(let j=i+1;j<layout.containers.length;j++){const a=layout.containers[i],b=layout.containers[j]; const nested=ancestorOf(a.id,b.id)||ancestorOf(b.id,a.id); if(!nested&&rectOverlap(a,b)) add('ERROR', 'CONTAINER_OVERLAP', `Container overlap: ${a.id} / ${b.id}`, a.id, `/containers/${i}`);}
   for(const [nodeIndex, n] of nodes.entries()) for(const p of n.layoutPorts??[]) { const cx=p.x+p.width/2,cy=p.y+p.height/2,tolerance=Math.max(p.width,p.height)+2; const onBoundary=p.side==='NORTH'?Math.abs(cy-n.y)<=tolerance:p.side==='SOUTH'?Math.abs(cy-(n.y+n.height))<=tolerance:p.side==='WEST'?Math.abs(cx-n.x)<=tolerance:p.side==='EAST'?Math.abs(cx-(n.x+n.width))<=tolerance:Math.min(Math.abs(cx-n.x),Math.abs(cx-(n.x+n.width)),Math.abs(cy-n.y),Math.abs(cy-(n.y+n.height)))<=tolerance; if(!onBoundary) add('ERROR', 'PORT_OUTSIDE_NODE', `Port outside node: ${p.id}`, p.id, `/nodes/${nodeIndex}/layoutPorts`); }
   for(const [index, e] of layout.edges.entries()){ if(e.sourcePort && !nodes.some(n=>n.layoutPorts?.some(p=>p.id===e.sourcePort))) add('ERROR', 'BROKEN_SOURCE_PORT', `Broken source port: ${e.id}`, e.id, `/edges/${index}/sourcePort`); if(e.targetPort && !nodes.some(n=>n.layoutPorts?.some(p=>p.id===e.targetPort))) add('ERROR', 'BROKEN_TARGET_PORT', `Broken target port: ${e.id}`, e.id, `/edges/${index}/targetPort`); }
-  const vertical = layout.diagram.direction === 'TOP_TO_BOTTOM' || layout.diagram.direction === 'BOTTOM_TO_TOP';
-  for(const [index, group] of (layout.diagram.constraints?.sameLayer??[]).entries()){const present=nodes.filter(n=>group.includes(n.id)); if(present.length>1){const values=present.map(n=>vertical?n.y:n.x); if(Math.max(...values)-Math.min(...values)>5) add('WARNING', 'BROKEN_SAME_LAYER_CONSTRAINT', `Broken same-layer constraint: ${group.join(', ')}`, group[0], `/constraints/sameLayer/${index}`);}}
   const visualBounds=[...nodes,...layout.containers]; const maxX = Math.max(...visualBounds.map(n => n.x + n.width), 0), maxY = Math.max(...visualBounds.map(n => n.y + n.height), 0);
   if (layout.width + 1 < maxX || layout.height + 1 < maxY) add('ERROR', 'CANVAS_OVERFLOW', 'Canvas overflow');
   const nodeArea=nodes.reduce((s,n)=>s+n.width*n.height,0), canvasArea=Math.max(1,layout.width*layout.height), density=nodeArea/canvasArea;
