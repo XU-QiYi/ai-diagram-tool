@@ -112,13 +112,5 @@
         "deployedOn": "node.app-b"
       }
     ]
-  },
-  "constraints": {
-    "sameLayer": [
-      [
-        "node.app-a",
-        "node.app-b"
-      ]
-    ]
   }
 }

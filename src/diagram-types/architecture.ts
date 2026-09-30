@@ -133,10 +133,6 @@ export function layeredArchitecture(
     ],
     constraints: {
       placement: { "node.user": "FIRST", "node.external": "LAST" },
-      before: [
-        ["node.gateway", "node.service"],
-        ["node.service", "node.repository"],
-      ],
     },
   });
 }
@@ -365,7 +361,6 @@ export function deploymentArchitecturePreset(
         },
       ],
     },
-    constraints: { sameLayer: [["node.app-a", "node.app-b"]] },
   });
 }
 

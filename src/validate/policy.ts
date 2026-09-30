@@ -19,7 +19,6 @@ export const AESTHETIC_LAYOUT_CODES: ReadonlySet<string> = new Set([
   'ORPHAN_NODE',
   'DUPLICATE_EDGE_RELATIONSHIP',
   'EDGE_LABEL_OVERLAP',
-  'BROKEN_SAME_LAYER_CONSTRAINT',
 ]);
 
 /**

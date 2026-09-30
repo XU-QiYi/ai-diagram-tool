@@ -1,5 +1,5 @@
 export * from './types.js';
-import { DIAGRAM_TYPES, type Diagram, type Node, type Edge, type Style } from './types.js';
+import { DIAGRAM_TYPES, REMOVED_CONSTRAINT_KEYS, type Diagram, type Node, type Edge, type Style } from './types.js';
 
 const STYLE_COLOR_FIELDS = ['fill', 'stroke', 'text'] as const;
 const STYLE_NUMBER_RANGES = {
@@ -74,6 +74,19 @@ function validateStyle(style: Style | undefined, owner: string): void {
 
 export function createDiagram(input: Omit<Diagram, 'nodes' | 'edges'> & { nodes?: Node[]; edges?: Edge[] }): Diagram {
   if (!DIAGRAM_TYPES.includes(input.type)) throw new Error(`Unsupported diagram type: ${String(input.type)}`);
+  // Removed knobs are rejected rather than ignored: a legacy .model.json carrying them would
+  // otherwise lay out silently differently from what its author asked for, with no signal.
+  for (const key of REMOVED_CONSTRAINT_KEYS) {
+    if (input.constraints && key in input.constraints) {
+      throw new Error(
+        `constraints.${key} was removed from the model API: it measured inert on elkjs 0.12.0, ` +
+        `so the engine never honored it and keeping the field would promise a lever that does not exist. ` +
+        `Delete "${key}" from your model. To pin a node to the first/last layer use constraints.placement ` +
+        `(FIRST | LAST | FIRST_SEPARATE | LAST_SEPARATE), which is measured to work; to reduce edge crossings ` +
+        `change the structure instead (drop or reroute cross-layer long edges, group nodes into containers, or split the diagram).`,
+      );
+    }
+  }
   const nodes = input.nodes ?? [];
   const edges = input.edges ?? [];
   const nodeIds = new Set<string>();

@@ -112,34 +112,6 @@ function algorithmFor(diagram: Diagram): string {
       : "layered";
 }
 
-function orderedIds(
-  ids: string[],
-  before: Array<[string, string]> = [],
-): string[] {
-  const order = new Map(ids.map((id, i) => [id, i]));
-  const incoming = new Map(ids.map((id) => [id, 0]));
-  const outgoing = new Map(ids.map((id) => [id, [] as string[]]));
-  for (const [a, b] of before)
-    if (incoming.has(a) && incoming.has(b)) {
-      outgoing.get(a)!.push(b);
-      incoming.set(b, incoming.get(b)! + 1);
-    }
-  const queue = ids
-    .filter((id) => incoming.get(id) === 0)
-    .sort((a, b) => order.get(a)! - order.get(b)!);
-  const result: string[] = [];
-  while (queue.length) {
-    const id = queue.shift()!;
-    result.push(id);
-    for (const next of outgoing.get(id)!) {
-      incoming.set(next, incoming.get(next)! - 1);
-      if (incoming.get(next) === 0) queue.push(next);
-    }
-    queue.sort((a, b) => order.get(a)! - order.get(b)!);
-  }
-  return result.length === ids.length ? result : ids;
-}
-
 function buildElkGraph(diagram: Diagram, profile: LayoutProfile) {
   const containers = effectiveContainers(diagram);
   const childOwner = new Map<string, string>();
@@ -152,10 +124,6 @@ function buildElkGraph(diagram: Diagram, profile: LayoutProfile) {
     if (n.containerId) nodeOwner.set(n.id, n.containerId);
   for (const c of containers)
     for (const id of c.nodeIds) if (!nodeOwner.has(id)) nodeOwner.set(id, c.id);
-  const sameLayer = new Map<string, number>();
-  (diagram.constraints?.sameLayer ?? []).forEach((group, i) =>
-    group.forEach((id) => sameLayer.set(id, i)),
-  );
   const placement = diagram.constraints?.placement ?? {};
   const makeNode = (node: Diagram["nodes"][number]): any => {
     const size = measureNode(node, diagram.type);
@@ -164,10 +132,6 @@ function buildElkGraph(diagram: Diagram, profile: LayoutProfile) {
     if (placement[node.id])
       layoutOptions["elk.layered.layering.layerConstraint"] =
         placement[node.id];
-    if (sameLayer.has(node.id))
-      layoutOptions["elk.layered.layering.layerChoiceConstraint"] = String(
-        sameLayer.get(node.id),
-      );
     return {
       id: node.id,
       ...size,
@@ -182,11 +146,15 @@ function buildElkGraph(diagram: Diagram, profile: LayoutProfile) {
       })),
     };
   };
-  const allOrder = orderedIds(
-    [...diagram.nodes.map((n) => n.id), ...containers.map((c) => c.id)],
-    diagram.constraints?.before,
+  // Declaration order over nodes then containers. This only makes the child order handed to
+  // ELK deterministic (a sub-container declared before some node sorts ahead of it). It is
+  // NOT a layout lever: this engine build decides in-layer positions itself, which is why
+  // the author-facing `constraints.before` knob was deleted instead of kept as a hint.
+  const rank = new Map(
+    [...diagram.nodes.map((n) => n.id), ...containers.map((c) => c.id)].map(
+      (id, i) => [id, i],
+    ),
   );
-  const rank = new Map(allOrder.map((id, i) => [id, i]));
   const makeContainer = (container: Container): any => {
     const children = [
       ...diagram.nodes
@@ -366,7 +334,12 @@ function flattenLayout(diagram: Diagram, result: any) {
   return { nodes, containers, edges };
 }
 
-const DEFAULT_RELAYOUT_CODES = new Set([
+/**
+ * Findings that make another layout pass worth running at all. Exported so
+ * `scripts/generate-error-codes.ts` documents the column from this set instead of
+ * restating it (a restated list is a list that drifts).
+ */
+export const DEFAULT_RELAYOUT_CODES: ReadonlySet<string> = new Set([
   'NODE_OVERLAP',
   'EDGE_CROSSING',
   'EDGE_THROUGH_NODE',
@@ -407,7 +380,7 @@ function iterationStatus(issues: ValidationIssue[]): LayoutIteration['status'] {
  * 1839x511 -> 3243x871, and under `radial` every multiplier produced a byte-identical
  * canvas because the layered spacing options never reach that algorithm.
  */
-const SPACING_FIXABLE: ReadonlySet<string> = new Set([
+export const SPACING_FIXABLE: ReadonlySet<string> = new Set([
   'NODE_OVERLAP',
   'EXCESSIVE_DENSITY',
   'CANVAS_OVERFLOW',
@@ -452,7 +425,7 @@ export async function layoutDiagram(
     const flat = flattenLayout(diagram, result);
     // Edges ELK did not route at all would ship as invisible relationships, so the
     // vendored router fills exactly those - never a line ELK already drew.
-    const unrouted = flat.edges.filter((e) => !e.sections || !e.sections.length);
+    const unrouted = flat.edges.filter((e) => !e.sections?.length);
     const fallbackRoutes = await routeMissingEdges(flat.nodes, unrouted);
     for (const [id, route] of fallbackRoutes) {
       const edge = flat.edges.find((e) => e.id === id);

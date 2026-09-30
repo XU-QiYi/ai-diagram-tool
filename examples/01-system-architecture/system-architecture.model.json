@@ -220,16 +220,6 @@
     "placement": {
       "node.user": "FIRST",
       "node.external": "LAST"
-    },
-    "before": [
-      [
-        "node.gateway",
-        "node.service"
-      ],
-      [
-        "node.service",
-        "node.repository"
-      ]
-    ]
+    }
   }
 }

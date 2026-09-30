@@ -26,7 +26,15 @@ export interface Node { id: string; label: string; description?: string; kind?: 
 export interface Container { id: string; label: string; description?: string; nodeIds: string[]; containerIds?: string[]; parentId?: string; direction?: Direction; padding?: number; spacing?: number; style?: Style; provenance?: Provenance; }
 export interface Edge { id: string; source: string; target: string; sourcePort?: string; targetPort?: string; label?: string; type?: RelationshipType; style?: Style; sourceMultiplicity?: string; targetMultiplicity?: string; guard?: string; action?: string; messageKind?: MessageKind; isAsync?: boolean; provenance?: Provenance; }
 export type LayerPlacement = 'FIRST' | 'LAST' | 'FIRST_SEPARATE' | 'LAST_SEPARATE';
-export interface LayoutConstraints { placement?: Record<string, LayerPlacement>; sameLayer?: string[][]; before?: Array<[string, string]>; forceSingle?: boolean; }
+// `sameLayer` and `before` were removed from this interface on purpose: both measured
+// inert on elkjs 0.12.0 (see the note below), so keeping them would be a knob the model
+// API promises and the engine never honors. `placement` stays because it does work.
+export interface LayoutConstraints { placement?: Record<string, LayerPlacement>; forceSingle?: boolean; }
+/**
+ * Constraint keys deleted from the API. `createDiagram` rejects a model that still carries
+ * one so a legacy `.model.json` fails loudly instead of laying out silently differently.
+ */
+export const REMOVED_CONSTRAINT_KEYS = ['sameLayer', 'before'] as const;
 export interface DiagramTheme { name?: 'professional' | 'monochrome' | 'blueprint'; showLegend?: boolean; }
 // 'radial' concentrates hub-like structures; 'box' and 'rectpacking' are omitted on
 // purpose: they pack nodes without routing edges, so every edge would ship unrouted.
@@ -35,9 +43,12 @@ export const LAYOUT_ALGORITHMS: readonly LayoutAlgorithm[] = ['auto', 'layered',
 // Composition knobs stay closed where measurement says they do nothing. On elkjs 0.12.0
 // we saw NO observable difference from: crossingMinimization.strategy (any value, even
 // unknown ones), crossingMinimization.semiInteractive (honoring node order), and
-// layering.layerChoiceConstraint - the last one is why `constraints.sameLayer` cannot be
-// promised. What does work: layering.layerConstraint (backs constraints.placement) and
-// nodePlacement.strategy, plus direction, spacing and aspectRatio.
+// layering.layerChoiceConstraint - which is why the `constraints.sameLayer` field that
+// mapped to it was deleted rather than documented with a caveat. Feeding children in a
+// different order (the old `constraints.before`) likewise did not move anything: this
+// build's crossing minimization decides in-layer positions itself. What does work:
+// layering.layerConstraint (backs constraints.placement) and nodePlacement.strategy,
+// plus direction, spacing and aspectRatio.
 export interface LayoutPreferences { density?: LayoutDensity; nodeSpacing?: number; layerSpacing?: number; containerPadding?: number; targetAspectRatio?: number; wrapping?: 'AUTO' | 'OFF' | 'SINGLE_EDGE' | 'MULTI_EDGE'; svgPad?: number; rootPadding?: number; edgeLabelFontSize?: number; edgeLength?: number; relayoutTriggers?: string[]; algorithm?: LayoutAlgorithm; profile?: ValidationProfile; }
 export interface ActivationBar { id: string; participantId: string; startMessageId: string; endMessageId?: string; label?: string; }
 export interface CombinedFragment { id: string; operator: 'alt' | 'opt' | 'loop' | 'par' | 'break' | 'critical'; guard?: string; messageIds: string[]; }

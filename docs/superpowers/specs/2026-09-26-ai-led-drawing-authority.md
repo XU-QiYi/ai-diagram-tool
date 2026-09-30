@@ -187,6 +187,19 @@ AI 可直接交出一份带几何的对象清单；也可选择调用 `layoutDia
 
 回归：`npm run build` 干净，`npm test` 134/134（新增 placement 生效与 sameLayer 被检测两例，以及"建议文案不得承诺无效杠杆"的断言），19 个 examples 画幅**零变化**。
 
+> **后续（2026-09-29）：上面这张表里两个 ❌/⚠️ 的作者侧旋钮已从模型 API 删除。**
+> 本节保留原始测量记录不改（它就是删除的依据）。当时的处置是「保留字段 + 文档写清不生效 +
+> `BROKEN_SAME_LAYER_CONSTRAINT` 事后报告」，但这仍然是"读起来像承诺的死配置"——和同一段里
+> 被撤回的 `honorNodeOrder` 是同一类问题，只是它已经在公开 API 里了。
+>
+> 现在的处置：`constraints.sameLayer` 与 `constraints.before` 从 `LayoutConstraints` 移除，
+> `createDiagram` 遇到这两个键**直接抛错**并说明为什么被删、该改用 `constraints.placement`
+> 或改结构；`BROKEN_SAME_LAYER_CONSTRAINT` 码与 `orderedIds()` 一并删除。
+> 验证：19 个 examples 重新生成后，**全部 `.drawio` 与 `.svg` 逐字节未变**，只有 3 个
+> `.model.json` 少了那两个键（`01-system-architecture`、`16-cloud-architecture` 带 `before`，
+> `17-production-deployment` 带 `sameLayer`）——这正是"它们从来没影响过布局"的直接证据。
+> `npm test` 140/140。
+
 ## 13. 引入 libavoid，但只当替补（2026-09-26）
 
 技术负责人要求"把别人的搬进来"，并认为"不商用所以许可证无所谓"。**理由要纠正，结论对他有利**：许可证约束的是**分发**而非商用；且 LGPL-2.1 允许把它当库使用，只要保留声明并允许替换。本项目不分发，义务接近零——保留 `vendor/libavoid/LICENSE` 与 `NOTES.md` 即完成该做的部分。drawio 仓库整体是 **Apache-2.0**（GitHub API 识别），那个 25KB 的路由核心属于它。

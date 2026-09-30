@@ -445,7 +445,7 @@ test('an explicit relayoutTriggers list keeps the full iteration budget even whe
   assert.ok(!r.issues?.some(i => i.code === 'RELAYOUT_NOT_FIXABLE_BY_PREFERENCES'));
 });
 
-test('constraints.placement pins a layer; sameLayer is only advisory and reported when ignored', async () => {
+test('constraints.placement pins a layer; the inert sameLayer/before knobs are rejected, not silently ignored', async () => {
   const chain = (constraints?: any) => createDiagram({
     id: 'constraint-probe', title: 'Constraint probe', type: 'system-architecture', direction: 'LEFT_TO_RIGHT',
     constraints,
@@ -458,10 +458,15 @@ test('constraints.placement pins a layer; sameLayer is only advisory and reporte
   const pinnedC = pinned.nodes.find(n => n.id === 'node.c')!;
   assert.ok(pinnedC.x < plainC.x, `placement=FIRST must pull node.c back a layer (${plainC.x} -> ${pinnedC.x})`);
 
-  // layerChoiceConstraint does nothing on elkjs 0.12.0, so the tool must say so instead
-  // of pretending the group held.
-  const grouped = await layoutDiagram(chain({ sameLayer: [['node.a', 'node.b']] }), 1);
-  assert.ok(grouped.issues?.some(i => i.code === 'BROKEN_SAME_LAYER_CONSTRAINT'), 'an unmet sameLayer group must be reported, not silently accepted');
+  // sameLayer mapped to layering.layerChoiceConstraint and before reordered what the engine
+  // received; neither moved anything on elkjs 0.12.0, so both were deleted from the model
+  // API. A legacy model must fail loudly instead of laying out as if the knob had been
+  // honored - and the error must name the lever that does work.
+  for (const legacy of [{ sameLayer: [['node.a', 'node.b']] }, { before: [['node.a', 'node.b']] }]) {
+    assert.throws(() => chain(legacy), /was removed from the model API/, `${JSON.stringify(legacy)} must be rejected`);
+    assert.throws(() => chain(legacy), /constraints\.placement/, 'the rejection must say what to use instead');
+    assert.throws(() => chain(legacy), /measured inert/, 'the rejection must say why it was removed');
+  }
 });
 
 test('spacing violations still get the ladder and converge clean', async () => {  const r = await layoutDiagram(chenErDiagram());

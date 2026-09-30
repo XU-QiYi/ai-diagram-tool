@@ -60,12 +60,6 @@ function subset(
               ([key]) => nodeIds.has(key),
             ),
           ),
-          sameLayer: diagram.constraints.sameLayer
-            ?.map((g) => g.filter((x) => nodeIds.has(x)))
-            .filter((g) => g.length > 1),
-          before: diagram.constraints.before?.filter(
-            ([a, b]) => nodeIds.has(a) && nodeIds.has(b),
-          ),
         }
       : { forceSingle: true },
     sequence: diagram.sequence
@@ -139,7 +133,7 @@ function overview(
   groups: Array<{ key: string; label: string; nodes: Set<string> }>,
 ): Diagram {
   const owner = new Map<string, string>();
-  groups.forEach((g) => g.nodes.forEach((id) => owner.set(id, g.key)));
+  for (const g of groups) for (const id of g.nodes) owner.set(id, g.key);
   const nodes = groups.map((g) => ({
     id: `overview.${g.key}`,
     label: g.label,
