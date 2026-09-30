@@ -21,7 +21,7 @@
 | 项 | 实测值 | 怎么复现 |
 |---|---|---|
 | TypeScript 编译 | 通过，0 error | `npm run build` |
-| 测试 | 156 个测试 / 7 个 suite / 15 个文件，全过，0 失败 | `npm test` |
+| 测试 | 159 个测试 / 7 个 suite / 16 个文件，全过，0 失败 | `npm test` |
 | 示例 | 19 个示例目录，每个含 `.model.json` + `.drawio` + `.svg` | `npm run examples` |
 | 图类型 | 15 种（`src/diagram-types/registry.ts`） | 见 README「这些类型分别适合什么」 |
 | MCP 工具 | 8 个（stdio JSON-RPC，零新增依赖） | `npm run mcp` |
@@ -49,6 +49,10 @@
   直线不再被 Draw.io 折成直角——**校验的是什么线，看到的就是什么线**。
 - **视觉复核门禁**：位图优先走真实 draw.io Desktop，探测不到才退回 sharp 光栅化 SVG，
   结果里写明用了哪个后端；审查结论只能映射为 `LayoutPreferences`，坐标一律丢弃。
+- **专用布局**：timeline（单轴里程碑）与 mindmap（双向发散）走确定性专用布局（AGENTS §6），
+  显式指定 `layout.algorithm` 时仍可用 ELK。
+- **示例即门面**：19 个示例自带 `layout.profile: "strict"`，严格档逐例校验零 WARNING/ERROR，
+  6 张 golden 基线由真实 renderer 生成并逐像素回归。
 
 ---
 

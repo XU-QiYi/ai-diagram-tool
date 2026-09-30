@@ -24,7 +24,7 @@ npm test
 npm run examples
 ```
 
-`npm run examples` 会生成 19 个示例目录，覆盖基础类型、扩展 UML 类型、状态机、Chen ER 和 4 个架构预设：`examples/01-system-architecture` 至 `19-chen-er`。每个目录包含 `.model.json`、`.drawio` 和 `.svg`。验证时可用 `npm run examples -- --out <directory>` 写入独立目录，避免覆盖已有图。
+`npm run examples` 会生成 19 个示例目录，覆盖基础类型、扩展 UML 类型、状态机、Chen ER 和 4 个架构预设：`examples/01-system-architecture` 至 `19-chen-er`。每个目录包含 `.model.json`、`.drawio` 和 `.svg`。示例模型自带 `"layout": { "profile": "strict" }`——示例按最严档校验与重排，是各图类型的质量门面。验证时可用 `npm run examples -- --out <directory>` 写入独立目录，避免覆盖已有图。
 
 项目内置的业务图批量生成脚本使用：
 
@@ -332,7 +332,7 @@ npm run generate -- --chain "画一个 Chen ER 图。实体：学生、课程；
 
 `src/layout/elk.ts` 集中配置 ELK layered、方向、ORTHOGONAL 路由、节点/层间距，以及最多 5 次自动迭代（旋钮对某类问题无效时会提前停止并交回构图层，见「校验、布局和渲染命令」）。`src/validate/index.ts` 检查重叠、断边、孤立节点、边穿节点、画布溢出、重复 ID 与大图告警。新增图类型时：扩展 `DiagramType`，在 `src/diagram-types/` 添加构造器/语义规则，并在渲染器中补充必要样式。
 
-布局算法是**按图选择**的构图杠杆，写在模型顶层 `layout.algorithm`，取值 `auto | layered | stress | mrtree | radial`（`LAYOUT_ALGORITHMS` 是唯一事实来源，CLI 与 MCP 共用）。留空 `auto` 即沿用图类型默认（mindmap→mrtree，network/chen-er→stress，其余→layered）；`mrtree` 适合树状分支，`stress` 适合力导向网络，`radial` 把 hub 放到中心做环形阅读。已知边界：`radial` 与 Container 同时使用会让子节点落到框外（校验报 `NODE_OUTSIDE_CONTAINER`），在稠密图上还会让同环节点重叠，因此只作为显式选择、不进入任何默认路径。`box` / `rectpacking` 刻意不暴露——实测它们不为边生成任何路由段，交付出来是一堆没有连线路径的框。不在白名单内的算法名会直接抛错，不会被静默降级成 layered。
+布局算法是**按图选择**的构图杠杆，写在模型顶层 `layout.algorithm`，取值 `auto | layered | stress | mrtree | radial`（`LAYOUT_ALGORITHMS` 是唯一事实来源，CLI 与 MCP 共用）。留空 `auto` 即沿用图类型默认（mindmap→mrtree，network/chen-er→stress，其余→layered）；`mrtree` 适合树状分支，`stress` 适合力导向网络，`radial` 把 hub 放到中心做环形阅读。两个例外走**专用确定性布局**（AGENTS §6 预留）：`timeline` 在未显式指定算法时把里程碑排上一条共享轴线，`mindmap` 按子树高度把分支配平到根的两侧（ELK 的树布局只会往一边挂）；显式写了 `algorithm` 就仍用 ELK。已知边界：`radial` 与 Container 同时使用会让子节点落到框外（校验报 `NODE_OUTSIDE_CONTAINER`），在稠密图上还会让同环节点重叠，因此只作为显式选择、不进入任何默认路径。`box` / `rectpacking` 刻意不暴露——实测它们不为边生成任何路由段，交付出来是一堆没有连线路径的框。不在白名单内的算法名会直接抛错，不会被静默降级成 layered。
 
 **直线不再被折成直角。** 一条边若在 ELK 里没有拐点，`.drawio` 会写 `edgeStyle=none`。不加这个覆盖，Draw.io 会拿端点自己重排成直角折线——于是同一个模型 `.drawio` 里是折线、`.svg` 里是直线，而校验器量的那条直线其实根本没被画出来。现在两个渲染口径一致：**校验的是什么线，看到的就是什么线**。带拐点的边仍保留 `<Array as="points">` 与正交路由。
 

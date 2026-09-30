@@ -12,6 +12,15 @@ P1 收尾与 P2 第一批：让「一句话出图」可演示、视觉质量可�
 - **「一句话出图」reference adapter**（`examples/adapter/`）：双模适配器——设了 `DIAGRAM_ADAPTER_API_KEY` 走 OpenAI 兼容 `/chat/completions`（`DIAGRAM_ADAPTER_BASE_URL` / `DIAGRAM_ADAPTER_MODEL` 可换服务与模型），没设走确定性离线 mock；`npm run demo` 三条命令跑通「自然语言 → 模型 → 工具」闭环。适配器在核心之外，`src/` 永不发模型请求的原则不变。验证：`tests/adapter.test.ts` 走真实 CLI 产出任务 → adapter（无 key 无网络）→ 真实闸门落盘，provenance 引文逐字核验；demo 全程无 shell 拼接（用户请求文本不进 shell，避开注入与 DEP0190）。
 - **视觉回归基线（golden-image）**：`scripts/visual-gate.ts` + `scripts/visual-diff.ts`（零依赖 PNG 解码器，按扫描线解 IDAT，扛得住 draw.io 的良性重编码，不是字节比对）+ `tests/visual-baseline/` 的 6 张 golden PNG（由真实 draw.io Desktop 渲染）。每次检查用同一后端重渲染当前输出并**逐像素**比对（无采样——采样会漏掉落在奇数坐标上的真实改动）；尺寸不一致直接失败；renderer 不可用时**显式跳过并说明原因**，不静默通过。CI 会尝试 `apt-get install draw.io`，装不上则出 warning 跳过——「跳过」不冒充「通过」。验证：篡改基线 → FAIL、恢复 → PASS；`tests/visual-diff.test.ts` 手工构造全部 5 种 PNG 过滤类型。
 - **多页 `.drawio` 导出**：拆分场景（>40 节点）下 CLI 额外写 `<id>.multipage.drawio`（`renderDrawioMultiPage`），把各部分按顺序合并为同一文件的多页，每页保留自己的 id、名称与画幅；`rasterizeForReview({ page })` 由此可只导出某一页——论文套图一次导出、按页审查。合并器只接受 `renderDrawio` 的产物，其他 XML 直接抛错：绕过单页渲染诚实性检查的捷径不存在。验证：`tests/render-multipage.test.ts`（页序/id/名称保留、拒绝非页面输入）；CLI 冒烟：45 节点双容器模型拆成 main/a/b，`mp-smoke.multipage.drawio` 含 3 个按序 `<diagram>`。
+- **timeline / mindmap 专用布局**（`src/layout/timeline.ts`、`src/layout/mindmap.ts`）：两者走 AGENTS §6 预留的专用确定性布局——timeline 把里程碑按声明顺序排在一条共享轴线上（milestone 画菱形、渲染器补轴线，连线即轴段），mindmap 按子树高度把一级分支配平到根的两侧（此前 ELK mrtree 只会往一边挂，画出来是右侧组织树而不是思维导图）。显式指定 `layout.algorithm` 时仍用 ELK，专用布局同样过 `validateLayout` 并按 profile 出报告。
+- **19 个示例自带 `layout.profile: "strict"`**：示例是质量门面，现在每个 `.model.json` 都带最严档——记法与观感问题保持 WARNING 并参与自动重排；重新生成后严格档逐例校验零 WARNING/ERROR。活动图补上 `[invalid]` 分支与 Rejected 终点、状态图把初始/终止伪状态收进复合状态、思维导图示例加二级分支。
+
+### 修复
+
+- **draw.io 标签被 HTML 二次解码吞掉**：draw.io 以 `html=1` 渲染标签值，XML 解码后的字符串会再按 HTML 解析一次；`<<component>>`、`<<include>>` 这类文本解码后成为真标签被吞（构造型显示成 `<>`、include/extend 标签消失、`List<Layer>` 丢尖括号）。用户文本现在双重转义（`escText`），结构性标记（`<u>`、`<div>`、`<br>`）保持单转义。用例图的 `<<include>>`/`<<extend>>`、类图构造型与泛型、组件图构造型全部恢复显示。
+- **零拐点边不再画成斜线**：`edgeStyle=none` 下 Draw.io 用浮动端点自己取边界点，两个节点不对齐时，ELK 算出的水平/垂直直线段被画成斜线（活动图 fork/reserve、状态机 Failed↔Processing 可见）。现在每条边都把 ELK 给出的起止点钉成 `exitX/exitY/entryX/entryY`，**校验器量的、SVG 画的、.drawio 里看到的是同一条线**。
+- **ER 弱实体双框真的画出来了**：此前写的 `double=1` 不是 draw.io 样式键，弱实体一直是单框矩形；现在渲染外扩 5px 的第二个边框（SVG 同步）。
+- 活动图 Fork/Join 黑条上的标签改白字（此前深底深字不可读）；部署制品画进宿主节点右下角（此前悬在节点下方甚至容器外），部署节点标签置顶、`measureNode` 保证宿主 ≥72px 高避免互相遮挡；图例的 Actor 行改为等比例火柴人（此前压扁成椭圆块）；时序图组合片段标签内缩不再压虚线框；所有边标签加白底（`labelBackgroundColor`），压线也可读。
 
 ### 变更
 
@@ -20,7 +29,8 @@ P1 收尾与 P2 第一批：让「一句话出图」可演示、视觉质量可�
 
 ### 校验基线
 
-- `npm run verify` 全绿：lint + build + 156 个测试（15 个文件）+ 133 个错误码文档同步。
+- `npm run verify` 全绿：lint + build + 159 个测试（16 个文件）+ 133 个错误码文档同步。
+- 视觉 golden 基线 6 张按新渲染重建后 6/6 PASS（`npm run visual-gate`）。
 
 ## [未发布] — 2026-09-29
 
