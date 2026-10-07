@@ -229,7 +229,7 @@ test('stdio session drives plan -> submit -> review -> apply and writes editable
   }
 });
 
-test('the compiled entry that MiMo registers exposes the same eight tools', async () => {
+test('the compiled entry a host registers exposes the same eight tools', async () => {
   const distEntry = path.join(projectRoot, 'dist', 'src', 'mcp', 'server.js');
   if (
     !(await fs.stat(distEntry).then(

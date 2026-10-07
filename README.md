@@ -2,6 +2,13 @@
 
 AI 负责把自然语言、文档或图片转换成 Diagram Model；ELK.js 负责布局和路由，验证器检查几何质量与渲染诚实性，最后输出可编辑的 diagrams.net/Draw.io XML 和 SVG 预览。需要 Node.js 22.13+。
 
+<p align="center">
+  <img src="docs/screenshots/01-system-architecture.png" width="49%" alt="系统架构图（--preset layered）">
+  <img src="docs/screenshots/07-sequence.png" width="49%" alt="时序图示例">
+  <br>
+  <img src="docs/screenshots/19-chen-er.png" width="72%" alt="Chen ER 示例（论文套图风格）">
+</p>
+
 ## 三分钟上手
 
 ```bash
@@ -149,21 +156,23 @@ npm run generate -- --plan output/answer.json --review-findings output/findings.
 
 调用方**不能**传入坐标：任何带 `x`、`y`、`sections`、`bendPoints`、`waypoints`、`geometry`、`mxCell`、`mxGeometry` 的 `model` 或 `patch` 会被 `INPUT_GEOMETRY_FORBIDDEN` 拒收，错误信息会说明坐标只能由 ELK 计算。路径参数被限制在服务根目录内（`DIAGRAM_MCP_ROOT`，默认启动时工作目录），越界返回 `PATH_OUTSIDE_WORKSPACE`。想要自然语言/文档/图片而又不提交计划答案时，`diagram_generate` 返回 `AGENT_PLAN_REQUIRED`，提示改走 `diagram_plan_request` → 自己的模型 → `diagram_plan_submit`，或显式设 `chain: true`。
 
-在 MiMo Desktop 中注册（Settings → MCP，改完需重启并新建会话）。先 `npm run build`，用编译产物最稳，不依赖加载器解析：
+### 接入任意 MCP 宿主（stdio）
+
+先 `npm run build`，然后把编译产物注册成 stdio 服务——Claude Desktop、MiMo Desktop、Cursor 等任何支持 MCP 的宿主都吃这一种配置（改完需重启宿主并新建会话）：
 
 ```jsonc
-"ai-diagram-tool:mcp": {
-  "type": "local",
-  "command": [
-    "D:\\Software\\DevTools\\node\\node.exe",
-    "F:\\tool_sharing\\tool-share\\ai-diagram-tool\\dist\\src\\mcp\\server.js"
-  ],
-  "environment": { "DIAGRAM_MCP_ROOT": "F:\\tool_sharing\\tool-share\\ai-diagram-tool" },
-  "enabled": true
+{
+  "mcpServers": {
+    "ai-diagram-tool": {
+      "command": "node",
+      "args": ["<本仓库路径>/dist/src/mcp/server.js"],
+      "env": { "DIAGRAM_MCP_ROOT": "<本仓库路径>" }
+    }
+  }
 }
 ```
 
-开发时想跳过构建，也可以用 `node --import tsx src/mcp/server.ts`；注意 `--import tsx` 是按**进程工作目录**解析 `tsx` 包的，宿主必须把工作目录设成本项目根目录，否则起不来。两种方式都已在 Node v24 下实测握手成功（`initialize` 返回 `serverInfo.name = diagram-mcp`）。
+`DIAGRAM_MCP_ROOT` 指向项目目录，服务的读写都被限制在里面。开发时想跳过构建，也可以用 `node --import tsx src/mcp/server.ts`；注意 `--import tsx` 按**进程工作目录**解析 `tsx` 包，宿主必须把工作目录设成本项目根目录，否则起不来。两种方式都已在 Node v24 下实测握手成功（`initialize` 返回 `serverInfo.name = diagram-mcp`）。
 
 ### 或者走 HTTP：`npm run mcp:http`
 
