@@ -259,7 +259,9 @@ test('the compiled entry that MiMo registers exposes the same eight tools', asyn
   }
 });
 
-test('draw.io renders every bundled example it is given (renderer compatibility smoke)', async () => {
+test('draw.io renders every bundled example it is given (renderer compatibility smoke)', {
+  skip: rasterBackendSkip,
+}, async () => {
   const exampleDirs = (await fs.readdir(path.join(projectRoot, 'examples'), { withFileTypes: true }))
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(projectRoot, 'examples', entry.name));
