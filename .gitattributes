@@ -1,0 +1,6 @@
+# Normalize line endings: the repository stores LF, and biome enforces LF in the working
+# copy — without this a Windows checkout materializes CRLF and `biome ci` fails.
+* text=auto eol=lf
+
+# Golden-image baselines are opaque bytes; git must never touch them.
+*.png binary

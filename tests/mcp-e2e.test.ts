@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { type ChildProcess, spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -7,13 +8,31 @@ import { after, before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { runCli } from '../src/cli.js';
 import { resolveWorkspaceRoot } from '../src/mcp/server.js';
-import { resolveDrawioExecutable } from '../src/render/png.js';
+import { loadSharpDefault, resolveDrawioExecutable } from '../src/render/png.js';
 
 /**
  * End-to-end over a real stdio session: a caller that shares nothing with this process
  * asks for a plan task, submits an answer, asks for a review, submits findings, and gets
  * artifacts back. Written outputs stay inside a temp workspace, never the repository.
  */
+
+// The two review-round-trip tests need one raster backend (sharp locally, draw.io Desktop
+// on render machines). Where neither exists they skip LOUDLY instead of failing — the
+// backend contracts themselves are covered in visual-gate.test.ts.
+const rasterBackendSkip = await (async () => {
+  try {
+    await loadSharpDefault(process.env);
+    return false;
+  } catch {
+    /* fall through to the draw.io probe */
+  }
+  const resolution = await resolveDrawioExecutable(process.env, async (target) => existsSync(target)).catch(
+    () => undefined,
+  );
+  return resolution
+    ? false
+    : 'no raster backend on this machine (sharp not loadable, draw.io Desktop not found); covered where a backend exists';
+})();
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REQUEST = '用户调用订单服务，订单服务写入数据库';
@@ -146,7 +165,9 @@ after(async () => {
   await fs.rm(workspace, { recursive: true, force: true });
 });
 
-test('stdio session drives plan -> submit -> review -> apply and writes editable Draw.io', async () => {
+test('stdio session drives plan -> submit -> review -> apply and writes editable Draw.io', {
+  skip: rasterBackendSkip,
+}, async () => {
   const server = startServer(path.join(projectRoot, 'src', 'mcp', 'server.ts'), workspace);
   try {
     await handshake(server, 'e2e');

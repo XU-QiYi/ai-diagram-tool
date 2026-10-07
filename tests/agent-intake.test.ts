@@ -5,12 +5,31 @@ import os from 'node:os';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
 import { callTool } from '../src/mcp/tools.js';
+import { loadSharpDefault } from '../src/render/png.js';
 
 /**
  * An external reasoner supplies the semantics and the visual findings. These tests hold
  * submitted answers to the same gates the in-project planner faced, and assert that no
  * coordinate can travel back in through either channel.
  */
+
+// The review-packaging test needs one raster backend (sharp locally, draw.io Desktop on
+// render machines). Where neither exists the test skips LOUDLY instead of failing — the
+// backend plumbing itself is covered by the backend contract tests in visual-gate.test.ts.
+const rasterBackendSkip = await (async () => {
+  try {
+    await loadSharpDefault(process.env);
+    return false;
+  } catch {
+    /* fall through to the draw.io probe */
+  }
+  const candidates = [process.env.DRAWIO_PATH?.trim(), 'C:\\Program Files\\draw.io\\draw.io.exe'].filter(
+    (p): p is string => Boolean(p),
+  );
+  return candidates.some((candidate) => existsSync(candidate))
+    ? false
+    : 'no raster backend on this machine (sharp not loadable, draw.io Desktop not found); covered where a backend exists';
+})();
 
 const REQUEST = '用户调用订单服务，订单服务写入数据库';
 const evidence = (quote: string) => ({ source: 'request', quote, confidence: 0.95 });
@@ -154,7 +173,7 @@ test('a missing audit is reported as unreviewed, never as a pass', async () => {
   assert.equal(json.written.auditConfidence, 0, 'the report must not imply an audit happened');
 });
 
-test('review request packages the bitmap with only referenceable ids', async () => {
+test('review request packages the bitmap with only referenceable ids', { skip: rasterBackendSkip }, async () => {
   const json = await payload(
     await callTool(
       'diagram_review_request',
