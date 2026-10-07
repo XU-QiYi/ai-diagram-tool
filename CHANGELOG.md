@@ -27,6 +27,7 @@ SVG 预览形状保真补齐、README 三分钟上手、布局引擎现状核实
 - **CI 增加 Windows job**：draw.io Desktop 路径探测、盘根 EPERM 守卫等平台相关代码此前只在 ubuntu runner 上跑；Windows job 跑 lint+build+test（示例逐字节比对与视觉门禁依赖换行符与真实 renderer，仍归 ubuntu）。视觉后端测试自带 skip 守卫，无 draw.io 的 runner 会优雅跳过。
 - **依赖审计 0 漏洞**（`npm audit --registry=https://registry.npmjs.org`，运行时与开发依赖各查一遍；默认镜像源不提供 audit 端点）；`npm run generate:toolshare` / `generate:architecture-report` / `npm run demo`（离线 mock）冒烟全部通过。
 - **MCP 接入文档改为通用宿主写法**：stdio 注册示例不再绑定 MiMo Desktop 的私有配置格式，给出任何 MCP 宿主（Claude Desktop / MiMo / Cursor 等）通用的 `mcpServers` 配置；HTTP 模式本就与宿主无关。README 顶部新增三张示例渲染图（架构 / 时序 / Chen ER）。
+- **README 从 360 行瘦身到约 215 行**：MCP 接入细节、Chen ER 语法、高级 UML/ER 字段、布局参数与算法白名单、扩展点五块深水区内容移入 `docs/MCP.md` / `CHEN-ER-SYNTAX.md` / `UML-FEATURES.md` / `LAYOUT.md` / `EXTENDING.md`，README 每处留一行指针。CI 新增覆盖率报告 artifact（Node 内建，linux job 产出）。仓库已启用 main 分支保护：禁止 force push 与删除、强制线性历史、对管理员同样生效（防手滑不防人，真要改历史需先显式关保护）。
 - **adapter 的 API key 路径补上测试**（此前只有离线 mock 路径有覆盖）：本地起一个假 OpenAI 兼容端点，验证 Bearer key、模型名、system 提示词都真实送达、```` ```json ```` 围栏被剥离、答案通过真实 plan 闸门出图；端点回 500 时 adapter 大声报错退出、不写答案文件、不悄悄退回 mock。测试自身也修掉一个死锁：假服务器跑在测试进程里，`spawnSync` 会冻结事件循环让服务器无法应答（undici 头部超时 300 秒才破裂）——改用异步 `spawn` 后整套 5 秒跑完。dist 构建的 MCP HTTP 端点另做了握手冒烟。
 - **CI 首跑暴露的两个平台问题已修，第二台机器上的门禁全绿**（首次推送到 GitHub 触发真实 Actions；ubuntu 与 windows 双 job 现均为 success）：
   1. **Windows job 的 `biome ci` 失败**——Windows checkout 把 LF 物化成 CRLF，而 biome 强制工作副本 LF。加 `.gitattributes`（`* text=auto eol=lf` + `*.png binary` 保护 golden 基线）。

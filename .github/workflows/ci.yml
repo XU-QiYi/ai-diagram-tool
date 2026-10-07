@@ -40,6 +40,18 @@ jobs:
       - name: Test
         run: npm test
 
+      # 覆盖率报告作为 workflow artifact 存档（Node 内建，零新增依赖）。
+      - name: Coverage report
+        if: runner.os == 'Linux'
+        run: npx tsx --test --experimental-test-coverage tests/*.test.ts > coverage-report.txt
+
+      - name: Upload coverage artifact
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report.txt
+
       # 重新生成示例并确认与仓库内已提交的版本逐字节一致：
       # 示例是文档与回归基线的一部分，悄悄漂移比测试失败更危险。
       - name: Examples match committed artifacts
