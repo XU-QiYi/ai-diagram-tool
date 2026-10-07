@@ -26,12 +26,12 @@ const rasterBackendSkip = await (async () => {
   } catch {
     /* fall through to the draw.io probe */
   }
-  const resolution = await resolveDrawioExecutable(process.env, async (target) => existsSync(target)).catch(
-    () => undefined,
-  );
-  return resolution
+  // resolveDrawioExecutable never throws: it reports unavailability via kind, so a
+  // truthiness check on the object would always pass and never skip.
+  const resolution = await resolveDrawioExecutable(process.env, async (target) => existsSync(target));
+  return resolution.kind === 'resolved'
     ? false
-    : 'no raster backend on this machine (sharp not loadable, draw.io Desktop not found); covered where a backend exists';
+    : `no raster backend on this machine (sharp not loadable, draw.io not resolvable: ${resolution.kind}); covered where a backend exists`;
 })();
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
