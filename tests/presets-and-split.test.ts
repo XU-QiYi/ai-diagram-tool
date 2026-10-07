@@ -82,3 +82,83 @@ test('splitting a two-container diagram yields overview, per-container parts and
     'overview page comes first',
   );
 });
+
+test('splitting a large sequence diagram filters sequence metadata to what each part still owns', async () => {
+  // 45 participants chunk into part-1 (1..40) and part-2 (41..45); message.40 (40→41)
+  // crosses the chunk boundary and is dropped from both parts.
+  const nodes: Diagram['nodes'] = Array.from({ length: 45 }, (_, i) => ({
+    id: `participant.${i + 1}`,
+    label: `P${i + 1}`,
+    kind: 'participant',
+  }));
+  const edges: Diagram['edges'] = Array.from({ length: 44 }, (_, i) => ({
+    id: `message.${i + 1}`,
+    source: `participant.${i + 1}`,
+    target: `participant.${i + 2}`,
+    type: 'flow',
+    label: `m${i + 1}`,
+  }));
+  const diagram = createDiagram({
+    id: 'split-seq',
+    title: 'Split Sequence',
+    type: 'sequence',
+    nodes,
+    edges,
+    sequence: {
+      activations: [
+        // participant 1 owns this activation and both its messages live in part-1: kept.
+        { id: 'activation.p1', participantId: 'participant.1', startMessageId: 'message.1', endMessageId: 'message.2' },
+        // dangling before the fix: the activation's message (40→41) is dropped from part-1.
+        { id: 'activation.p1-cross', participantId: 'participant.1', startMessageId: 'message.40' },
+        // lives entirely inside part-2: kept there, not in part-1.
+        { id: 'activation.p41', participantId: 'participant.41', startMessageId: 'message.41' },
+      ],
+      fragments: [
+        { id: 'fragment.alt', operator: 'alt', messageIds: ['message.1', 'message.41'] },
+        // every message crosses a boundary: the fragment must vanish from both parts.
+        { id: 'fragment.cross', operator: 'opt', messageIds: ['message.40'] },
+      ],
+    },
+  });
+
+  const parts = splitLargeDiagram(diagram).filter((p) => p.role === 'subsystem');
+  assert.equal(parts.length, 2);
+  const byName = new Map(parts.map((p) => [p.name, p.diagram]));
+  const part1 = byName.get('part-1');
+  const part2 = byName.get('part-2');
+  assert.ok(part1 && part2, 'chunked parts are named part-N');
+
+  assert.deepEqual(
+    (part1.sequence?.activations ?? []).map((a) => a.id),
+    ['activation.p1'],
+    'part-1 keeps only activations whose message span survives the split',
+  );
+  assert.deepEqual(
+    (part1.sequence?.fragments ?? []).map((f) => f.id),
+    ['fragment.alt'],
+    'a fragment with only cross-boundary messages is dropped',
+  );
+  assert.deepEqual(
+    part1.sequence?.fragments?.[0].messageIds,
+    ['message.1'],
+    'fragment message lists are narrowed to the part',
+  );
+  assert.deepEqual(
+    (part2.sequence?.activations ?? []).map((a) => a.id),
+    ['activation.p41'],
+  );
+  assert.deepEqual(part2.sequence?.fragments?.[0].messageIds, ['message.41']);
+
+  // The point of the filter: no part may carry dangling sequence references.
+  for (const part of [part1, part2]) {
+    const result = await layoutDiagram(part);
+    const dangling = (result.issues ?? []).filter(
+      (issue) => issue.severity === 'ERROR' && /SEQUENCE|ACTIVATION|FRAGMENT/.test(issue.code),
+    );
+    assert.deepEqual(
+      dangling,
+      [],
+      `${part.id} must not carry dangling sequence references: ${dangling.map((d) => d.code).join(',')}`,
+    );
+  }
+});

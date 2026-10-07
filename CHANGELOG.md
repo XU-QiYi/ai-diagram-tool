@@ -24,6 +24,7 @@ SVG 预览形状保真补齐、README 三分钟上手、布局引擎现状核实
 - **CI 增加 Windows job**：draw.io Desktop 路径探测、盘根 EPERM 守卫等平台相关代码此前只在 ubuntu runner 上跑；Windows job 跑 lint+build+test（示例逐字节比对与视觉门禁依赖换行符与真实 renderer，仍归 ubuntu）。视觉后端测试自带 skip 守卫，无 draw.io 的 runner 会优雅跳过。
 - **依赖审计 0 漏洞**（`npm audit --registry=https://registry.npmjs.org`，运行时与开发依赖各查一遍；默认镜像源不提供 audit 端点）；`npm run generate:toolshare` / `generate:architecture-report` / `npm run demo`（离线 mock）冒烟全部通过。
 - **adapter 的 API key 路径补上测试**（此前只有离线 mock 路径有覆盖）：本地起一个假 OpenAI 兼容端点，验证 Bearer key、模型名、system 提示词都真实送达、```` ```json ```` 围栏被剥离、答案通过真实 plan 闸门出图；端点回 500 时 adapter 大声报错退出、不写答案文件、不悄悄退回 mock。测试自身也修掉一个死锁：假服务器跑在测试进程里，`spawnSync` 会冻结事件循环让服务器无法应答（undici 头部超时 300 秒才破裂）——改用异步 `spawn` 后整套 5 秒跑完。dist 构建的 MCP HTTP 端点另做了握手冒烟。
+- **修复：拆分大图时时序激活条会带着悬空引用落入部件**（覆盖率排查 `split.ts` 时发现）。`subset()` 此前只按参与者过滤 `sequence.activations`——拆分 >40 节点的时序图时跨部件消息被丢弃，但参与者留在部件里的激活条仍指向已删除的消息边，语义校验对部件直接报 ERROR；fragments 与 `activity.objectFlows` 的过滤一直是对的，唯独 activations 漏了。现在激活条按「部件内仍存在的边」过滤 `startMessageId`/`endMessageId`，fragments 改用同一个边集合。红绿测试钉住：45 参与者时序图拆分后，各部件零悬空引用、跨边界 fragment 正确消失、消息列表收窄到本部件。
 
 ## [未发布] — 2026-09-30
 

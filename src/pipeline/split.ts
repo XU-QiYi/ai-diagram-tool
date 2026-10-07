@@ -23,6 +23,13 @@ function ownedNodeIds(container: Container, containers: Container[]): Set<string
 function subset(diagram: Diagram, id: string, title: string, nodes: Node[], containers: Container[]): Diagram {
   const nodeIds = new Set(nodes.map((n) => n.id));
   const containerIds = new Set(containers.map((c) => c.id));
+  // Edge ids that survive in this part: both endpoints belong here. Sequence activations
+  // must be checked against this set, not just participant membership — an activation
+  // whose message crossed the split boundary would otherwise keep pointing at an edge
+  // this part no longer has, and semantic validation would flag the dangling reference.
+  const partEdgeIds = new Set(
+    diagram.edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target)).map((e) => e.id),
+  );
   return createDiagram({
     ...diagram,
     id,
@@ -46,13 +53,16 @@ function subset(diagram: Diagram, id: string, title: string, nodes: Node[], cont
       : { forceSingle: true },
     sequence: diagram.sequence
       ? {
-          activations: diagram.sequence.activations?.filter((a) => nodeIds.has(a.participantId)),
+          activations: diagram.sequence.activations?.filter(
+            (a) =>
+              nodeIds.has(a.participantId) &&
+              partEdgeIds.has(a.startMessageId) &&
+              (!a.endMessageId || partEdgeIds.has(a.endMessageId)),
+          ),
           fragments: diagram.sequence.fragments
             ?.map((f) => ({
               ...f,
-              messageIds: f.messageIds.filter((mid) =>
-                diagram.edges.some((e) => e.id === mid && nodeIds.has(e.source) && nodeIds.has(e.target)),
-              ),
+              messageIds: f.messageIds.filter((mid) => partEdgeIds.has(mid)),
             }))
             .filter((f) => f.messageIds.length),
         }
@@ -65,9 +75,7 @@ function subset(diagram: Diagram, id: string, title: string, nodes: Node[], cont
               nodeIds: l.nodeIds.filter((x) => nodeIds.has(x)),
             }))
             .filter((l) => l.nodeIds.length),
-          objectFlows: diagram.activity.objectFlows?.filter((id) =>
-            diagram.edges.some((e) => e.id === id && nodeIds.has(e.source) && nodeIds.has(e.target)),
-          ),
+          objectFlows: diagram.activity.objectFlows?.filter((id) => partEdgeIds.has(id)),
         }
       : undefined,
     state: diagram.state
